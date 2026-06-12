@@ -36,17 +36,26 @@ ROLE_KEYWORDS = [
     "full-stack",
 ]
 
-SIMPLIFY_TERMS = {"Summer 2026", "Fall 2026", "Off-Season"}  # adjust as needed
+INTERNSHIP_KEYWORDS = [
+    "intern", "internship", "co-op", "coop", "co op",
+]
 
 
 def location_matches(location_text: str) -> bool:
-    loc = location_text.lower()
-    return any(k in loc for k in LOCATION_KEYWORDS)
+    # Location filtering disabled for now — re-enable by uncommenting below.
+    return True
+    # loc = location_text.lower()
+    # return any(k in loc for k in LOCATION_KEYWORDS)
 
 
 def role_matches(title_text: str) -> bool:
     title = title_text.lower()
     return any(k in title for k in ROLE_KEYWORDS)
+
+
+def is_internship(title_text: str) -> bool:
+    title = title_text.lower()
+    return any(k in title for k in INTERNSHIP_KEYWORDS)
 
 
 # --- State -------------------------------------------------------------------
@@ -90,6 +99,8 @@ def fetch_simplify_jobs():
         uid = f"simplify:{entry.get('id')}"
 
         if not role_matches(title):
+            continue
+        if not is_internship(title):
             continue
         if not location_matches(location_str):
             continue
@@ -137,6 +148,8 @@ def fetch_canadian_jobs():
             continue  # would need to track previous company; skip for now
 
         if not role_matches(title):
+            continue
+        if not is_internship(title):
             continue
         if not location_matches(location):
             continue
@@ -199,6 +212,8 @@ def fetch_amazon_jobs():
             location_str = job.get("location", loc["label"])
 
             if not role_matches(title):
+                continue
+            if not is_internship(title):
                 continue
 
             uid = f"amazon:{job_id}"

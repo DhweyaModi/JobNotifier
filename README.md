@@ -4,7 +4,7 @@ Polls job listing sources every 30 minutes and posts new matches (filtered to
 Canada / Seattle SWE-type roles) to a Slack channel via webhook.
 
 ## Sources
-
+ 
 1. **SimplifyJobs/Summer2026-Internships** — `listings.json` feed (most reliable, JSON).
 2. **negarprh/Canadian-Tech-Internships-2026** — parsed from the README markdown table.
 3. **amazon.jobs** — public `search.json` endpoint, filtered to software-development

@@ -22,7 +22,7 @@ from pathlib import Path
 import requests
 
 STATE_FILE = Path(__file__).parent / "seen_jobs.json"
-SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
+SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL") # saved as a GitHub secret and injected into the Action's environment
 
 # --- Filters ---------------------------------------------------------------
 
@@ -73,19 +73,21 @@ def save_seen(seen: set) -> None:
 
 # --- Source 1: SimplifyJobs --------------------------------------------------
 
+# SimplifyJobs Summer2026-Internships listings.json 
 SIMPLIFY_URL = (
     "https://raw.githubusercontent.com/SimplifyJobs/"
     "Summer2026-Internships/dev/.github/scripts/listings.json"
 )
 
-
+""" Fetches the JSON file via HTTP GET and returns a list of (unique_id, title, company, location, url) tuples. """
 def fetch_simplify_jobs():
-    """Returns a list of (unique_id, title, company, location, url) tuples."""
     resp = requests.get(SIMPLIFY_URL, timeout=30)
     resp.raise_for_status()
     data = resp.json()
 
     results = []
+
+    # For each entry, check if it's active and visible, then filter by role, internship, and location.
     for entry in data:
         if not entry.get("active", True):
             continue
@@ -113,6 +115,7 @@ def fetch_simplify_jobs():
 
 # --- Source 2: negarprh/Canadian-Tech-Internships-2026 ----------------------
 
+# Split into tuples of (year_label, url) for easier parsing and unique ID generation later.
 CANADIAN_README_URLS = [
     (
         "2026",
@@ -133,12 +136,12 @@ MD_ROW_RE = re.compile(
     re.MULTILINE,
 )
 
-
+"""Parse a Canadian-Tech-Internships README and return job tuples."""
 def _parse_canadian_readme(text: str, year_label: str):
-    """Parse a Canadian-Tech-Internships README and return job tuples."""
     results = []
     last_company = ""
 
+    # Iterates over all markdown table rows, extracting company, title, location, and URL.
     for match in MD_ROW_RE.finditer(text):
         company, title, location, url = match.groups()
 
@@ -166,11 +169,11 @@ def _parse_canadian_readme(text: str, year_label: str):
 
     return results
 
-
+"""Fetch both 2026 and 2027 Canadian READMEs and return combined job tuples."""
 def fetch_canadian_jobs():
-    """Fetch both 2026 and 2027 Canadian READMEs and return combined job tuples."""
     results = []
 
+    # HTTP request for each README, then parse with the helper function. Unique IDs include the year label to avoid collisions between the two lists.
     for year_label, url in CANADIAN_README_URLS:
         try:
             resp = requests.get(url, timeout=30)
@@ -205,9 +208,11 @@ AMAZON_HEADERS = {
     "Referer": "https://www.amazon.jobs/en/search?base_query=software+engineer",
 }
 
-
+"""
+Returns a list of (unique_id, title, company, location, url) tuples. 
+HTTP GET to amazon.jobs search API for software development internships in specified locations, then filter and format results.
+"""
 def fetch_amazon_jobs():
-    """Returns a list of (unique_id, title, company, location, url) tuples."""
     results = []
 
     for loc in AMAZON_LOCATIONS:
@@ -326,6 +331,7 @@ def main():
     seen = load_seen()
     new_jobs = []
 
+    # Fetch jobs from each source, filter out already seen ones, and collect new ones to notify. 
     for fetch_fn, label in (
         (fetch_simplify_jobs, "SimplifyJobs"),
         (fetch_canadian_jobs, "Canadian-Tech-Internships"),

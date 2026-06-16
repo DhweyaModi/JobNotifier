@@ -322,7 +322,14 @@ def send_slack_message(text: str) -> None:
 
 
 def format_job_message(source_label: str, title: str, company: str, location: str, url: str) -> str:
-    return f"*[{source_label}]* {title} @ {company} — _{location}_\n{url}"
+    """Format a job posting for Slack with company first, then title, location, and source."""
+    # Build the apply link — Slack format: <url|text> makes a clickable link
+    apply_link = f"<{url}|Apply>" if url else "No link"
+    return (
+        f"🏢 *{company}* — {title} — 📍 {location}\n"
+        f"   🔗 {apply_link}\n"
+        f"   📋 _Source: {source_label}_"
+    )
 
 
 # --- Main ----------------------------------------------------------------------

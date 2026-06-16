@@ -6,9 +6,12 @@ Canada / Seattle SWE-type roles) to a Slack channel via webhook.
 ## Sources
 
 1. **SimplifyJobs/Summer2026-Internships** — `listings.json` feed (most reliable, JSON).
-2. **negarprh/Canadian-Tech-Internships-2026** — parsed from the README markdown table.
+2. **negarprh/Canadian-Tech-Internships-2026** — parsed from both `README.md` (2026) and
+   `README-2027.md` (2027) markdown tables.
 3. **amazon.jobs** — public `search.json` endpoint, filtered to software-development
    roles in Canada and Seattle, WA.
+4. **sndsh404/summer-2027-internships** — parsed from the README markdown table
+   (US-focused Summer 2027 + off-season internships).
 
 ## Setup
 

@@ -3,8 +3,9 @@ Job board monitor.
 
 Sources:
   1. SimplifyJobs Summer2026-Internships (listings.json)
-  2. negarprh/Canadian-Tech-Internships-2026 (README table, parsed)
+  2. negarprh/Canadian-Tech-Internships-2026 (README.md + README-2027.md tables, parsed)
   3. amazon.jobs JSON search API
+  4. sndsh404/summer-2027-internships (README.md markdown table, parsed)
 
 Notifies new matching postings to a Slack Incoming Webhook.
 
@@ -112,10 +113,18 @@ def fetch_simplify_jobs():
 
 # --- Source 2: negarprh/Canadian-Tech-Internships-2026 ----------------------
 
-CANADIAN_README_URL = (
-    "https://raw.githubusercontent.com/negarprh/"
-    "Canadian-Tech-Internships-2026/main/README.md"
-)
+CANADIAN_README_URLS = [
+    (
+        "2026",
+        "https://raw.githubusercontent.com/negarprh/"
+        "Canadian-Tech-Internships-2026/main/README.md",
+    ),
+    (
+        "2027",
+        "https://raw.githubusercontent.com/negarprh/"
+        "Canadian-Tech-Internships-2026/main/README-2027.md",
+    ),
+]
 
 # Matches markdown table rows like:
 # | Company | Role | Location | [![Apply](badge_url)](apply_url) | Date Posted |
@@ -125,27 +134,25 @@ MD_ROW_RE = re.compile(
 )
 
 
-def fetch_canadian_jobs():
-    """Returns a list of (unique_id, title, company, location, url) tuples."""
-    resp = requests.get(CANADIAN_README_URL, timeout=30)
-    if resp.status_code != 200:
-        # Repo/branch name may differ; fail soft so the rest of the run continues.
-        print(f"[canadian] WARN: status {resp.status_code} for README", file=sys.stderr)
-        return []
-
-    text = resp.text
+def _parse_canadian_readme(text: str, year_label: str):
+    """Parse a Canadian-Tech-Internships README and return job tuples."""
     results = []
+    last_company = ""
 
     for match in MD_ROW_RE.finditer(text):
         company, title, location, url = match.groups()
 
-        # Skip header/separator rows and "scroll down" arrow rows (same company as above)
+        # Skip header/separator rows
         if title.lower() in ("role", "position") or set(title) <= {"-", " ", ":"}:
             continue
         if set(company) <= {"-", " ", ":"}:
             continue
-        if company == "↳":
-            continue  # would need to track previous company; skip for now
+
+        # Handle ↳ rows — same company as the row above
+        if company.strip() == "↳":
+            company = last_company
+        else:
+            last_company = company
 
         if not role_matches(title):
             continue
@@ -154,8 +161,28 @@ def fetch_canadian_jobs():
         if not location_matches(location):
             continue
 
-        uid = f"canadian:{company}:{title}:{url}"
+        uid = f"canadian-{year_label}:{company}:{title}:{url}"
         results.append((uid, title, company, location, url))
+
+    return results
+
+
+def fetch_canadian_jobs():
+    """Fetch both 2026 and 2027 Canadian READMEs and return combined job tuples."""
+    results = []
+
+    for year_label, url in CANADIAN_README_URLS:
+        try:
+            resp = requests.get(url, timeout=30)
+        except Exception as exc:
+            print(f"[canadian-{year_label}] WARN: {exc}", file=sys.stderr)
+            continue
+
+        if resp.status_code != 200:
+            print(f"[canadian-{year_label}] WARN: status {resp.status_code}", file=sys.stderr)
+            continue
+
+        results.extend(_parse_canadian_readme(resp.text, year_label))
 
     return results
 
@@ -222,6 +249,61 @@ def fetch_amazon_jobs():
     return results
 
 
+# --- Source 4: sndsh404/summer-2027-internships -----------------------------
+
+SUMMER2027_README_URL = (
+    "https://raw.githubusercontent.com/sndsh404/"
+    "summer-2027-internships/main/README.md"
+)
+
+# Matches markdown table rows like:
+# | Company | Role | Location | [apply](url) | Added |
+SUMMER2027_ROW_RE = re.compile(
+    r"^\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*\[apply\]\((.+?)\)\s*\|",
+    re.MULTILINE,
+)
+
+
+def fetch_summer2027_jobs():
+    """Parse sndsh404/summer-2027-internships README.md markdown table.
+
+    Returns a list of (unique_id, title, company, location, url) tuples.
+    """
+    try:
+        resp = requests.get(SUMMER2027_README_URL, timeout=30)
+    except Exception as exc:
+        print(f"[summer2027] WARN: {exc}", file=sys.stderr)
+        return []
+
+    if resp.status_code != 200:
+        print(f"[summer2027] WARN: status {resp.status_code} for README", file=sys.stderr)
+        return []
+
+    text = resp.text
+    results = []
+
+    for match in SUMMER2027_ROW_RE.finditer(text):
+        company, title, location, url = match.groups()
+
+        # Skip header/separator rows
+        if title.lower() in ("role", "position") or set(title) <= {"-", " ", ":"}:
+            continue
+        if set(company) <= {"-", " ", ":"}:
+            continue
+
+        if not role_matches(title):
+            continue
+        if not is_internship(title):
+            continue
+        if not location_matches(location):
+            continue
+
+        uid = f"summer2027:{company}:{title}:{url}"
+        results.append((uid, title, company, location, url))
+
+    return results
+
+
 # --- Slack notification -------------------------------------------------------
 
 def send_slack_message(text: str) -> None:
@@ -248,6 +330,7 @@ def main():
         (fetch_simplify_jobs, "SimplifyJobs"),
         (fetch_canadian_jobs, "Canadian-Tech-Internships"),
         (fetch_amazon_jobs, "Amazon"),
+        (fetch_summer2027_jobs, "Summer2027-Internships"),
     ):
         try:
             jobs = fetch_fn()

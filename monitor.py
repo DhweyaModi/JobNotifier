@@ -7,7 +7,9 @@ Sources:
   3. amazon.jobs JSON search API
   4. sndsh404/summer-2027-internships (README.md markdown table, parsed)
 
-Notifies new matching postings to a Slack Incoming Webhook.
+Notifies new matching postings to separate Slack channels by country
+(Canada / USA) via two Incoming Webhooks. Jobs that match both countries
+(e.g. multi-location listings) are sent to both channels.
 
 State (seen job IDs) is persisted to seen_jobs.json, which the GitHub
 Action commits back to the repo each run.
@@ -22,7 +24,9 @@ from pathlib import Path
 import requests
 
 STATE_FILE = Path(__file__).parent / "seen_jobs.json"
-SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL") # saved as a GitHub secret and injected into the Action's environment
+
+SLACK_WEBHOOK_CANADA = os.environ.get("SLACK_WEBHOOK_CANADA")  # GitHub secret -> Canada channel
+SLACK_WEBHOOK_USA = os.environ.get("SLACK_WEBHOOK_USA")  # GitHub secret -> USA channel
 
 # --- Filters ---------------------------------------------------------------
 
@@ -59,6 +63,62 @@ def is_internship(title_text: str) -> bool:
     return any(k in title for k in INTERNSHIP_KEYWORDS)
 
 
+# --- Country classification (Canada / USA / both / other) -------------------
+
+US_STATES = {
+    "al", "alabama", "ak", "alaska", "az", "arizona", "ar", "arkansas",
+    "ca", "california", "co", "colorado", "ct", "connecticut", "de", "delaware",
+    "fl", "florida", "ga", "georgia", "hi", "hawaii", "id", "idaho",
+    "il", "illinois", "in", "indiana", "ia", "iowa", "ks", "kansas",
+    "ky", "kentucky", "la", "louisiana", "me", "maine", "md", "maryland",
+    "ma", "massachusetts", "mi", "michigan", "mn", "minnesota", "ms", "mississippi",
+    "mo", "missouri", "mt", "montana", "ne", "nebraska", "nv", "nevada",
+    "nh", "new hampshire", "nj", "new jersey", "nm", "new mexico", "ny", "new york",
+    "nc", "north carolina", "nd", "north dakota", "oh", "ohio", "ok", "oklahoma",
+    "or", "oregon", "pa", "pennsylvania", "ri", "rhode island", "sc", "south carolina",
+    "sd", "south dakota", "tn", "tennessee", "tx", "texas", "ut", "utah",
+    "vt", "vermont", "va", "virginia", "wa", "washington", "wv", "west virginia",
+    "wi", "wisconsin", "wy", "wyoming", "dc",
+}
+
+CA_PROVINCES = {
+    "ab", "alberta", "bc", "british columbia", "mb", "manitoba",
+    "nb", "new brunswick", "nl", "newfoundland", "ns", "nova scotia",
+    "nt", "northwest territories", "nu", "nunavut", "on", "ontario",
+    "pe", "prince edward island", "qc", "quebec", "sk", "saskatchewan",
+    "yt", "yukon",
+}
+
+USA_NAME_HINTS = [
+    "usa", "united states", "u.s.", "u.s.a", "nyc", "sf", "bay area",
+    "silicon valley", "new york city",
+]
+CANADA_NAME_HINTS = ["canada", "ca"]
+
+
+def _tokenize_location(location_text: str) -> list:
+    # Split on commas/slashes/parens, strip whitespace, lowercase
+    parts = re.split(r"[,/()]", location_text.lower())
+    return [p.strip() for p in parts if p.strip()]
+
+
+def classify_country(location_text: str) -> str:
+    """Returns 'canada', 'usa', 'both', or 'other' based on location text."""
+    tokens = _tokenize_location(location_text)
+    token_set = set(tokens)
+
+    is_usa = bool(token_set & US_STATES) or any(h in location_text.lower() for h in USA_NAME_HINTS)
+    is_canada = bool(token_set & CA_PROVINCES) or any(h in location_text.lower() for h in CANADA_NAME_HINTS)
+
+    if is_canada and is_usa:
+        return "both"
+    if is_canada:
+        return "canada"
+    if is_usa:
+        return "usa"
+    return "other"
+
+
 # --- State -------------------------------------------------------------------
 
 def load_seen() -> set:
@@ -73,7 +133,7 @@ def save_seen(seen: set) -> None:
 
 # --- Source 1: SimplifyJobs --------------------------------------------------
 
-# SimplifyJobs Summer2026-Internships listings.json 
+# SimplifyJobs Summer2026-Internships listings.json
 SIMPLIFY_URL = (
     "https://raw.githubusercontent.com/SimplifyJobs/"
     "Summer2026-Internships/dev/.github/scripts/listings.json"
@@ -209,7 +269,7 @@ AMAZON_HEADERS = {
 }
 
 """
-Returns a list of (unique_id, title, company, location, url) tuples. 
+Returns a list of (unique_id, title, company, location, url) tuples.
 HTTP GET to amazon.jobs search API for software development internships in specified locations, then filter and format results.
 """
 def fetch_amazon_jobs():
@@ -311,13 +371,13 @@ def fetch_summer2027_jobs():
 
 # --- Slack notification -------------------------------------------------------
 
-def send_slack_message(text: str) -> None:
-    if not SLACK_WEBHOOK_URL:
-        print("WARN: SLACK_WEBHOOK_URL not set, skipping notification", file=sys.stderr)
+def send_slack_message(webhook_url, text: str, channel_label: str = "") -> None:
+    if not webhook_url:
+        print(f"WARN: webhook URL not set for [{channel_label}], skipping notification", file=sys.stderr)
         print(text)
         return
 
-    resp = requests.post(SLACK_WEBHOOK_URL, json={"text": text}, timeout=15)
+    resp = requests.post(webhook_url, json={"text": text}, timeout=15)
     resp.raise_for_status()
 
 
@@ -336,9 +396,11 @@ def format_job_message(source_label: str, title: str, company: str, location: st
 
 def main():
     seen = load_seen()
-    new_jobs = []
+    canada_jobs = []
+    usa_jobs = []
+    other_jobs = []  # location didn't clearly match Canada or USA — logged, not sent
 
-    # Fetch jobs from each source, filter out already seen ones, and collect new ones to notify. 
+    # Fetch jobs from each source, filter out already seen ones, classify by country.
     for fetch_fn, label in (
         (fetch_simplify_jobs, "SimplifyJobs"),
         (fetch_canadian_jobs, "Canadian-Tech-Internships"),
@@ -355,15 +417,40 @@ def main():
             if uid in seen:
                 continue
             seen.add(uid)
-            new_jobs.append((label, title, company, location, url))
 
-    if new_jobs:
-        # Batch into one message (or send individually if you prefer pings per job)
-        lines = [format_job_message(*job) for job in new_jobs]
-        message = f":briefcase: *{len(new_jobs)} new matching job(s) found!*\n\n" + "\n\n".join(lines)
-        send_slack_message(message)
-        print(f"Sent {len(new_jobs)} new job(s) to Slack.")
-    else:
+            country = classify_country(location)
+            job_tuple = (label, title, company, location, url)
+
+            if country == "canada":
+                canada_jobs.append(job_tuple)
+            elif country == "usa":
+                usa_jobs.append(job_tuple)
+            elif country == "both":
+                # Matches both Canada and USA (e.g. multi-location listing) — send to both channels
+                canada_jobs.append(job_tuple)
+                usa_jobs.append(job_tuple)
+            else:
+                other_jobs.append(job_tuple)
+
+    if canada_jobs:
+        lines = [format_job_message(*job) for job in canada_jobs]
+        message = f":maple_leaf: *{len(canada_jobs)} new Canada job(s) found!*\n\n" + "\n\n".join(lines)
+        send_slack_message(SLACK_WEBHOOK_CANADA, message, "Canada")
+        print(f"Sent {len(canada_jobs)} new job(s) to Canada channel.")
+
+    if usa_jobs:
+        lines = [format_job_message(*job) for job in usa_jobs]
+        message = f":flag-us: *{len(usa_jobs)} new USA job(s) found!*\n\n" + "\n\n".join(lines)
+        send_slack_message(SLACK_WEBHOOK_USA, message, "USA")
+        print(f"Sent {len(usa_jobs)} new job(s) to USA channel.")
+
+    if other_jobs:
+        # Not sent to Slack — logged so nothing silently disappears.
+        print(f"{len(other_jobs)} new job(s) didn't clearly match Canada or USA, skipped:", file=sys.stderr)
+        for label, title, company, location, _ in other_jobs:
+            print(f"  [{label}] {company} — {title} — {location}", file=sys.stderr)
+
+    if not (canada_jobs or usa_jobs or other_jobs):
         print("No new jobs found.")
 
     save_seen(seen)

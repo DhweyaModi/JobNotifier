@@ -24,7 +24,9 @@ jobs:
 
       - name: Run monitor
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_CANADA: ${{ secrets.SLACK_WEBHOOK_CANADA }}
+          SLACK_WEBHOOK_USA: ${{ secrets.SLACK_WEBHOOK_USA }}
+          SLACK_WEBHOOK_OTHER: ${{ secrets.SLACK_WEBHOOK_OTHER }}
         run: python monitor.py
 
       - name: Commit updated seen_jobs.json

@@ -25,8 +25,8 @@ import requests
 
 STATE_FILE = Path(__file__).parent / "seen_jobs.json"
 
-SLACK_WEBHOOK_CANADA = os.environ.get("SLACK_WEBHOOK_CANADA")  # GitHub secret -> Canada channel
-SLACK_WEBHOOK_USA = os.environ.get("SLACK_WEBHOOK_USA")  # GitHub secret -> USA channel
+SLACK_WEBHOOK_CANADA = os.environ.get("SLACK_WEBHOOK_URL_CANADA")  # GitHub secret -> Canada channel
+SLACK_WEBHOOK_USA = os.environ.get("SLACK_WEBHOOK_URL_USA")  # GitHub secret -> USA channel
 
 # --- Filters ---------------------------------------------------------------
 

@@ -27,6 +27,7 @@ STATE_FILE = Path(__file__).parent / "seen_jobs.json"
 
 SLACK_WEBHOOK_CANADA = os.environ.get("SLACK_WEBHOOK_URL_CANADA")  # GitHub secret -> Canada channel
 SLACK_WEBHOOK_USA = os.environ.get("SLACK_WEBHOOK_URL_USA")  # GitHub secret -> USA channel
+SLACK_WEBHOOK_OTHER = os.environ.get("SLACK_WEBHOOK_URL")  # GitHub secret -> Other channel
 
 # --- Filters ---------------------------------------------------------------
 
@@ -445,10 +446,10 @@ def main():
         print(f"Sent {len(usa_jobs)} new job(s) to USA channel.")
 
     if other_jobs:
-        # Not sent to Slack — logged so nothing silently disappears.
-        print(f"{len(other_jobs)} new job(s) didn't clearly match Canada or USA, skipped:", file=sys.stderr)
-        for label, title, company, location, _ in other_jobs:
-            print(f"  [{label}] {company} — {title} — {location}", file=sys.stderr)
+        lines = [format_job_message(*job) for job in other_jobs]
+        other_message = f":globe_with_meridians: *{len(other_jobs)} new Other job(s) found!*\n\n" + "\n\n".join(lines)
+        send_slack_message(SLACK_WEBHOOK_OTHER, other_message, "Other")
+        print(f"Sent {len(other_jobs)} new job(s) to Other channel.")
 
     if not (canada_jobs or usa_jobs or other_jobs):
         print("No new jobs found.")

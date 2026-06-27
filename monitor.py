@@ -124,7 +124,10 @@ def classify_country(location_text: str) -> str:
 
 def load_seen() -> set:
     if STATE_FILE.exists():
-        return set(json.loads(STATE_FILE.read_text()))
+        text = STATE_FILE.read_text().strip()
+        if not text:
+            return set()
+        return set(json.loads(text))
     return set()
 
 

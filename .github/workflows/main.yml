@@ -24,6 +24,8 @@ jobs:
 
       - name: Run monitor
         env:
+          SLACK_WEBHOOK_CANADA: ${{ secrets.SLACK_WEBHOOK_URL_CANADA }}
+          SLACK_WEBHOOK_USA: ${{ secrets.SLACK_WEBHOOK_URL_USA }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: python monitor.py
 

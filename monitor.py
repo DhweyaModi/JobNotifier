@@ -6,6 +6,9 @@ Sources:
   2. negarprh/Canadian-Tech-Internships-2026 (README.md + README-2027.md tables, parsed)
   3. amazon.jobs JSON search API
   4. sndsh404/summer-2027-internships (README.md markdown table, parsed)
+  5. vanshb03/Summer2027-Internships (listings.json, dev branch)
+  6. speedyapply/2027-AI-College-Jobs (INTERN_INTL.md, HTML table)
+  7. speedyapply/2027-SWE-College-Jobs (INTERN_INTL.md, HTML table)
 
 Notifies new matching postings to separate Slack channels by country
 (Canada / USA) via two Incoming Webhooks. Jobs that match both countries
@@ -348,13 +351,11 @@ def fetch_summer2027_jobs():
         print(f"[summer2027] WARN: status {resp.status_code} for README", file=sys.stderr)
         return []
 
-    text = resp.text
     results = []
 
-    for match in SUMMER2027_ROW_RE.finditer(text):
+    for match in SUMMER2027_ROW_RE.finditer(resp.text):
         company, title, location, url = match.groups()
 
-        # Skip header/separator rows
         if title.lower() in ("role", "position") or set(title) <= {"-", " ", ":"}:
             continue
         if set(company) <= {"-", " ", ":"}:
@@ -370,6 +371,105 @@ def fetch_summer2027_jobs():
         uid = f"summer2027:{company}:{title}:{url}"
         results.append((uid, title, company, location, url))
 
+    return results
+
+
+# --- Source 5: vanshb03/Summer2027-Internships (listings.json) ---------------
+
+VANSH_URL = (
+    "https://raw.githubusercontent.com/vanshb03/"
+    "Summer2027-Internships/dev/.github/scripts/listings.json"
+)
+
+
+def fetch_vansh_jobs():
+    """Same JSON schema as SimplifyJobs — reuses identical parsing logic."""
+    try:
+        resp = requests.get(VANSH_URL, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:
+        print(f"[vansh2027] WARN: {exc}", file=sys.stderr)
+        return []
+
+    results = []
+    for entry in data:
+        if not entry.get("active", True):
+            continue
+        if not entry.get("is_visible", True):
+            continue
+
+        title = entry.get("title", "")
+        company = entry.get("company_name", "")
+        locations = entry.get("locations", [])
+        location_str = ", ".join(locations)
+        url = entry.get("url", "")
+        uid = f"vansh2027:{entry.get('id')}"
+
+        if not role_matches(title):
+            continue
+        if not is_internship(title):
+            continue
+        if not location_matches(location_str):
+            continue
+
+        results.append((uid, title, company, location_str, url))
+
+    return results
+
+
+# --- Source 6 & 7: speedyapply HTML-table READMEs ---------------------------
+# speedyapply uses raw HTML inside markdown:
+# | <a href="co_url"><strong>Company</strong></a> | Title | Location | salary | <a href="apply_url"><img ...></a> | date |
+
+SPEEDYAPPLY_HTML_ROW_RE = re.compile(
+    r"^\|\s*<a\s+href=\"[^\"]*\"><strong>(.+?)</strong></a>\s*"  # company
+    r"\|\s*(.+?)\s*"                                              # title
+    r"\|\s*(.+?)\s*"                                              # location
+    r"\|[^|]*"                                                    # salary (skip)
+    r"\|\s*<a\s+href=\"([^\"]+)\"",                              # apply url
+    re.MULTILINE,
+)
+
+SPEEDYAPPLY_SOURCES = [
+    (
+        "speedyapply-ai",
+        "https://raw.githubusercontent.com/speedyapply/2027-AI-College-Jobs/main/INTERN_INTL.md",
+    ),
+    (
+        "speedyapply-swe",
+        "https://raw.githubusercontent.com/speedyapply/2027-SWE-College-Jobs/main/INTERN_INTL.md",
+    ),
+]
+
+
+def fetch_speedyapply_jobs():
+    results = []
+    for source_id, url in SPEEDYAPPLY_SOURCES:
+        try:
+            resp = requests.get(url, timeout=30)
+        except Exception as exc:
+            print(f"[{source_id}] WARN: {exc}", file=sys.stderr)
+            continue
+        if resp.status_code != 200:
+            print(f"[{source_id}] WARN: status {resp.status_code}", file=sys.stderr)
+            continue
+        for match in SPEEDYAPPLY_HTML_ROW_RE.finditer(resp.text):
+            company, title, location, apply_url = match.groups()
+            # Strip any residual HTML tags from fields
+            company = re.sub(r"<[^>]+>", "", company).strip()
+            title = re.sub(r"<[^>]+>", "", title).strip()
+            location = re.sub(r"<[^>]+>", "", location).strip()
+            if title.lower() in ("role", "title") or set(title) <= {"-", " ", ":"}:
+                continue
+            if not role_matches(title):
+                continue
+            if not is_internship(title):
+                continue
+            if not location_matches(location):
+                continue
+            uid = f"{source_id}:{company}:{title}:{apply_url}"
+            results.append((uid, title, company, location, apply_url))
     return results
 
 

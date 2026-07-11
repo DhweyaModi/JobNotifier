@@ -6,9 +6,9 @@ Sources:
   2. negarprh/Canadian-Tech-Internships-2026 (README.md + README-2027.md tables, parsed)
   3. amazon.jobs JSON search API
   4. sndsh404/summer-2027-internships (README.md markdown table, parsed)
-  5. vanshb03/Summer2027-Internships (listings.json, dev branch)
-  6. speedyapply/2027-AI-College-Jobs (INTERN_INTL.md, HTML table)
-  7. speedyapply/2027-SWE-College-Jobs (INTERN_INTL.md, HTML table)
+  5. vanshb03/Summer2027-Internships (README.md markdown table, parsed)
+  6. speedyapply/2027-AI-College-Jobs (README.md markdown table, parsed)
+  7. speedyapply/2027-SWE-College-Jobs (README.md markdown table, parsed)
 
 Notifies new matching postings to separate Slack channels by country
 (Canada / USA) via two Incoming Webhooks. Jobs that match both countries
@@ -278,6 +278,12 @@ AMAZON_HEADERS = {
 """
 Returns a list of (unique_id, title, company, location, url) tuples.
 HTTP GET to amazon.jobs search API for software development internships in specified locations, then filter and format results.
+
+NOTE: as of testing, amazon.jobs's /en/search.json endpoint appears to ignore
+the category[]/country[] filter params entirely (the echoed
+job_posting_search_request shows empty filterFacets regardless of what's
+sent), so this reliably returns ~0 real internship matches. Left in place
+but flagged — may need a different endpoint/auth to actually filter.
 """
 def fetch_amazon_jobs():
     results = []
@@ -374,103 +380,167 @@ def fetch_summer2027_jobs():
     return results
 
 
-# --- Source 5: vanshb03/Summer2027-Internships (listings.json) ---------------
+# --- Shared HTML-table helpers (used by vansh + speedyapply sources) --------
 
-VANSH_URL = (
+def _strip_html(cell: str) -> str:
+    """Strip HTML tags (e.g. <a><strong>Company</strong></a>) down to plain text."""
+    return re.sub(r"<[^>]+>", "", cell).strip()
+
+
+def _extract_href(cell: str) -> str:
+    """Pull the first href="..." URL out of an HTML cell."""
+    m = re.search(r'href="([^"]+)"', cell)
+    return m.group(1) if m else ""
+
+
+def _iter_table_rows(text: str, min_cols: int):
+    """Yield stripped cell lists for each markdown table row with >= min_cols columns.
+
+    Parses line-by-line (not with a multiline regex) so that malformed/irregular
+    rows can't cause matching to bleed across line boundaries — this is the bug
+    that was silently merging/corrupting rows in the Canadian/Summer2027 regexes.
+    """
+    for line in text.splitlines():
+        line = line.strip()
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if len(cells) < min_cols:
+            continue
+        yield cells
+
+
+def _is_junk_row(company_raw: str, title: str) -> bool:
+    """True for header rows, markdown separator rows (---|---|...), etc."""
+    if title.lower() in ("role", "position") or set(title) <= {"-", " ", ":"}:
+        return True
+    if set(company_raw) <= {"-", " ", ":"}:
+        return True
+    return False
+
+
+# --- Source 5: vanshb03/Summer2027-Internships ------------------------------
+
+VANSH_README_URL = (
     "https://raw.githubusercontent.com/vanshb03/"
-    "Summer2027-Internships/dev/.github/scripts/listings.json"
+    "Summer2027-Internships/main/README.md"
 )
 
 
 def fetch_vansh_jobs():
-    """Same JSON schema as SimplifyJobs — reuses identical parsing logic."""
+    """Parse vanshb03/Summer2027-Internships README.md table.
+
+    Columns: Company | Role | Location | Application/Link | Date Posted
+    The apply link is an HTML <a href="..."> inside the 4th column.
+    Returns a list of (unique_id, title, company, location, url) tuples.
+    """
     try:
-        resp = requests.get(VANSH_URL, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
+        resp = requests.get(VANSH_README_URL, timeout=30)
     except Exception as exc:
-        print(f"[vansh2027] WARN: {exc}", file=sys.stderr)
+        print(f"[vansh] WARN: {exc}", file=sys.stderr)
+        return []
+
+    if resp.status_code != 200:
+        print(f"[vansh] WARN: status {resp.status_code} for README", file=sys.stderr)
         return []
 
     results = []
-    for entry in data:
-        if not entry.get("active", True):
-            continue
-        if not entry.get("is_visible", True):
+    last_company = ""
+
+    for cells in _iter_table_rows(resp.text, min_cols=5):
+        company_raw, title, location, link_cell, _date = cells[:5]
+
+        if _is_junk_row(company_raw, title):
             continue
 
-        title = entry.get("title", "")
-        company = entry.get("company_name", "")
-        locations = entry.get("locations", [])
-        location_str = ", ".join(locations)
-        url = entry.get("url", "")
-        uid = f"vansh2027:{entry.get('id')}"
+        # Handle ↳ continuation rows — same company as the row above
+        if company_raw.strip() == "↳":
+            company = last_company
+        else:
+            company = _strip_html(company_raw)
+            last_company = company
+
+        url = _extract_href(link_cell)
 
         if not role_matches(title):
             continue
         if not is_internship(title):
             continue
-        if not location_matches(location_str):
+        if not location_matches(location):
             continue
 
-        results.append((uid, title, company, location_str, url))
+        uid = f"vansh:{company}:{title}:{url}"
+        results.append((uid, title, company, location, url))
 
     return results
 
 
-# --- Source 6 & 7: speedyapply HTML-table READMEs ---------------------------
-# speedyapply uses raw HTML inside markdown:
-# | <a href="co_url"><strong>Company</strong></a> | Title | Location | salary | <a href="apply_url"><img ...></a> | date |
-
-SPEEDYAPPLY_HTML_ROW_RE = re.compile(
-    r"^\|\s*<a\s+href=\"[^\"]*\"><strong>(.+?)</strong></a>\s*"  # company
-    r"\|\s*(.+?)\s*"                                              # title
-    r"\|\s*(.+?)\s*"                                              # location
-    r"\|[^|]*"                                                    # salary (skip)
-    r"\|\s*<a\s+href=\"([^\"]+)\"",                              # apply url
-    re.MULTILINE,
-)
+# --- Source 6 & 7: speedyapply/2027-AI-College-Jobs, 2027-SWE-College-Jobs --
 
 SPEEDYAPPLY_SOURCES = [
     (
         "speedyapply-ai",
-        "https://raw.githubusercontent.com/speedyapply/2027-AI-College-Jobs/main/INTERN_INTL.md",
+        "https://raw.githubusercontent.com/speedyapply/"
+        "2027-AI-College-Jobs/main/README.md",
     ),
     (
         "speedyapply-swe",
-        "https://raw.githubusercontent.com/speedyapply/2027-SWE-College-Jobs/main/INTERN_INTL.md",
+        "https://raw.githubusercontent.com/speedyapply/"
+        "2027-SWE-College-Jobs/main/README.md",
     ),
 ]
 
 
-def fetch_speedyapply_jobs():
+def _fetch_speedyapply_source(label: str, url: str):
+    """Parse a speedyapply README.md table.
+
+    Columns: Company | Position | Location | Salary | Posting | Age
+    Company is wrapped in HTML <a><strong>...</strong></a>; the apply link is
+    an HTML <a href="..."> inside the "Posting" column.
+    Returns a list of (unique_id, title, company, location, url) tuples.
+    """
+    try:
+        resp = requests.get(url, timeout=30)
+    except Exception as exc:
+        print(f"[{label}] WARN: {exc}", file=sys.stderr)
+        return []
+
+    if resp.status_code != 200:
+        print(f"[{label}] WARN: status {resp.status_code} for README", file=sys.stderr)
+        return []
+
     results = []
-    for source_id, url in SPEEDYAPPLY_SOURCES:
-        try:
-            resp = requests.get(url, timeout=30)
-        except Exception as exc:
-            print(f"[{source_id}] WARN: {exc}", file=sys.stderr)
+
+    for cells in _iter_table_rows(resp.text, min_cols=6):
+        company_raw, title, location, _salary, posting_cell, _age = cells[:6]
+
+        if _is_junk_row(company_raw, title):
             continue
-        if resp.status_code != 200:
-            print(f"[{source_id}] WARN: status {resp.status_code}", file=sys.stderr)
+
+        company = _strip_html(company_raw)
+        url_ = _extract_href(posting_cell)
+
+        if not role_matches(title):
             continue
-        for match in SPEEDYAPPLY_HTML_ROW_RE.finditer(resp.text):
-            company, title, location, apply_url = match.groups()
-            # Strip any residual HTML tags from fields
-            company = re.sub(r"<[^>]+>", "", company).strip()
-            title = re.sub(r"<[^>]+>", "", title).strip()
-            location = re.sub(r"<[^>]+>", "", location).strip()
-            if title.lower() in ("role", "title") or set(title) <= {"-", " ", ":"}:
-                continue
-            if not role_matches(title):
-                continue
-            if not is_internship(title):
-                continue
-            if not location_matches(location):
-                continue
-            uid = f"{source_id}:{company}:{title}:{apply_url}"
-            results.append((uid, title, company, location, apply_url))
+        if not is_internship(title):
+            continue
+        if not location_matches(location):
+            continue
+
+        uid = f"{label}:{company}:{title}:{url_}"
+        results.append((uid, title, company, location, url_))
+
     return results
+
+
+def fetch_speedyapply_ai_jobs():
+    label, url = SPEEDYAPPLY_SOURCES[0]
+    return _fetch_speedyapply_source(label, url)
+
+
+def fetch_speedyapply_swe_jobs():
+    label, url = SPEEDYAPPLY_SOURCES[1]
+    return _fetch_speedyapply_source(label, url)
 
 
 # --- Slack notification -------------------------------------------------------
@@ -510,6 +580,9 @@ def main():
         (fetch_canadian_jobs, "Canadian-Tech-Internships"),
         (fetch_amazon_jobs, "Amazon"),
         (fetch_summer2027_jobs, "Summer2027-Internships"),
+        (fetch_vansh_jobs, "Vansh-Summer2027"),
+        (fetch_speedyapply_ai_jobs, "SpeedyApply-AI"),
+        (fetch_speedyapply_swe_jobs, "SpeedyApply-SWE"),
     ):
         try:
             jobs = fetch_fn()
@@ -517,10 +590,14 @@ def main():
             print(f"[{label}] ERROR: {exc}", file=sys.stderr)
             continue
 
+        print(f"[{label}] fetched {len(jobs)} matching job(s) before dedup", file=sys.stderr)
+
+        new_count = 0
         for uid, title, company, location, url in jobs:
             if uid in seen:
                 continue
             seen.add(uid)
+            new_count += 1
 
             country = classify_country(location)
             job_tuple = (label, title, company, location, url)
@@ -535,6 +612,8 @@ def main():
                 usa_jobs.append(job_tuple)
             else:
                 other_jobs.append(job_tuple)
+
+        print(f"[{label}] {new_count} new (not previously seen)", file=sys.stderr)
 
     if canada_jobs:
         lines = [format_job_message(*job) for job in canada_jobs]

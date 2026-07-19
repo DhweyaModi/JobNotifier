@@ -25,8 +25,7 @@ import sys
 from pathlib import Path
 
 import requests
-
-STATE_FILE = Path(__file__).parent / "seen_jobs.json"
+from db import upsert_job
 
 SLACK_WEBHOOK_CANADA = os.environ.get("SLACK_WEBHOOK_CANADA")
 SLACK_WEBHOOK_USA = os.environ.get("SLACK_WEBHOOK_USA")
@@ -124,18 +123,7 @@ def classify_country(location_text: str) -> str:
 
 
 # --- State -------------------------------------------------------------------
-
-def load_seen() -> set:
-    if STATE_FILE.exists():
-        text = STATE_FILE.read_text().strip()
-        if not text:
-            return set()
-        return set(json.loads(text))
-    return set()
-
-
-def save_seen(seen: set) -> None:
-    STATE_FILE.write_text(json.dumps(sorted(seen), indent=2))
+# (State is managed by Supabase DB via db.py)
 
 
 # --- Source 1: SimplifyJobs --------------------------------------------------
@@ -569,7 +557,6 @@ def format_job_message(source_label: str, title: str, company: str, location: st
 # --- Main ----------------------------------------------------------------------
 
 def main():
-    seen = load_seen()
     canada_jobs = []
     usa_jobs = []
     other_jobs = []  # location didn't clearly match Canada or USA — logged, not sent
@@ -594,12 +581,11 @@ def main():
 
         new_count = 0
         for uid, title, company, location, url in jobs:
-            if uid in seen:
-                continue
-            seen.add(uid)
-            new_count += 1
-
             country = classify_country(location)
+            is_new = upsert_job(uid, label, title, company, location, country, url)
+            if not is_new:
+                continue
+            new_count += 1
             job_tuple = (label, title, company, location, url)
 
             if country == "canada":
@@ -635,8 +621,6 @@ def main():
 
     if not (canada_jobs or usa_jobs or other_jobs):
         print("No new jobs found.")
-
-    save_seen(seen)
 
 
 

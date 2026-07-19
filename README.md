@@ -1,59 +1,62 @@
-# Job Monitor
+# JobNotifier
 
-Polls job listing sources every 30 minutes and posts new matches (filtered to
-Canada / Seattle SWE-type roles) to a Slack channel via webhook.
+A modular scraper, database-backed tracker, and user notification fan-out engine for internships and tech roles.
 
-## Sources
+## Architecture & Structure
+- **`scrapers/`**: Modular scraper functions (SimplifyJobs, Canadian Tech Internships, Amazon Jobs, etc.) utilizing a clean, line-based parser to avoid boundary-crossing errors.
+- **`db.py`**: Handles connections to Supabase (Postgres) and manages job upserts, user filter configurations, and admin seeding.
+- **`notifier.py`**: Matches scraped jobs against user filters and formats/routes payloads cleanly to Slack (`{"text": ...}`) or Discord (`{"content": ...}`).
+- **`monitor.py`**: Scraper CLI entrypoint.
+- **`tests/`**: Unit testing suite containing mock tables and parser test cases.
 
-1. **SimplifyJobs/Summer2026-Internships** — `listings.json` feed (most reliable, JSON).
-2. **negarprh/Canadian-Tech-Internships-2026** — parsed from both `README.md` (2026) and
-   `README-2027.md` (2027) markdown tables.
-3. **amazon.jobs** — public `search.json` endpoint, filtered to software-development
-   roles in Canada and Seattle, WA.
-4. **sndsh404/summer-2027-internships** — parsed from the README markdown table
-   (US-focused Summer 2027 + off-season internships).
+---
 
-## Setup
+## Local Setup
 
-### 1. Create a Slack Incoming Webhook
-- Go to https://api.slack.com/apps -> Create New App -> From scratch
-- Enable "Incoming Webhooks", add a new webhook to your desired channel
-- Copy the webhook URL (looks like `https://hooks.slack.com/services/T000/B000/XXXX`)
-
-### 2. Push this repo to GitHub
+### 1. Prerequisites
+Ensure you have Python 3.12+ installed. Create a virtual environment and install requirements:
 
 ```bash
-cd job-monitor
-git init
-git add .
-git commit -m "Initial job monitor"
-gh repo create job-monitor --private --source=. --push
+# Create virtual environment
+python3 -m venv .venv
+
+# Activate virtual environment
+source .venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-(or create the repo manually on github.com and push)
+### 2. Database Setup
+1. Create a free project on [Supabase](https://supabase.com/).
+2. Run the DDL commands from `schema.sql` in the Supabase **SQL Editor** to initialize the database tables and disable Row Level Security (RLS) for scraper access.
 
-### 3. Add the Slack webhook as a repo secret
-- Repo -> Settings -> Secrets and variables -> Actions -> New repository secret
-- Name: `SLACK_WEBHOOK_URL`
-- Value: the webhook URL from step 1
+### 3. Environment Configuration
+Create a `.env` file in the root of this project:
 
-### 4. Enable Actions
-- Go to the "Actions" tab and enable workflows if prompted
-- The workflow runs every 30 minutes automatically, or trigger it manually via
-  "Run workflow" (workflow_dispatch)
+```env
+SUPABASE_URL="https://your-project.supabase.co"
+SUPABASE_KEY="your-anon-or-service-role-key"
 
-## Customizing filters
+# Slack Webhook URLs for Admin Seeding
+SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+SLACK_WEBHOOK_USA="https://hooks.slack.com/services/..."
+SLACK_WEBHOOK_CANADA="https://hooks.slack.com/services/..."
+```
 
-Edit `monitor.py`:
-- `LOCATION_KEYWORDS` — location strings to match (lowercase substring match)
-- `ROLE_KEYWORDS` — title keywords to match
-- `AMAZON_LOCATIONS` — countries/states queried against amazon.jobs
+---
 
-## Notes
+## Running & Testing
 
-- First run will likely report a large batch of "new" jobs since `seen_jobs.json`
-  starts empty — that's expected, it's seeding state. After that, only genuinely
-  new postings trigger notifications.
-- `seen_jobs.json` is committed back to the repo by the Action after each run.
-- If a source's structure changes (e.g. the Canadian repo renames columns or
-  branches), that fetcher fails soft and logs a warning — other sources still run.
+### Run Scraper Pipeline
+To scrape job boards, upsert matches, and notify configured users:
+```bash
+python monitor.py
+```
+*(When run locally, this will automatically detect environment webhooks and seed/update the admin users in the database).*
+
+### Run Tests
+To run unit tests and verify the parser functions against mock fixtures:
+```bash
+PYTHONPATH=. pytest
+```

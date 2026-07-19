@@ -78,3 +78,11 @@ CREATE TRIGGER update_applications_modtime
     BEFORE UPDATE ON applications
     FOR EACH ROW
     EXECUTE FUNCTION update_modified_column();
+
+-- Disable Row Level Security (RLS) on all tables since this database is accessed by a backend scraper using the anon key.
+ALTER TABLE jobs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE job_duplicates DISABLE ROW LEVEL SECURITY;
+ALTER TABLE users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE user_filters DISABLE ROW LEVEL SECURITY;
+ALTER TABLE applications DISABLE ROW LEVEL SECURITY;
+

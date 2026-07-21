@@ -5,7 +5,11 @@ import re
 ROLE_KEYWORDS = [
     "software", "swe", "engineer", "engineering", "developer", "data",
     "machine learning", "ml", "ai", "backend", "frontend", "full stack",
-    "full-stack",
+    "full-stack", "scientist", "research", "researcher", "quant", "quantitative",
+    "trader", "analyst", "architect", "systems", "system", "infrastructure",
+    "sre", "devops", "robotics", "security", "cyber", "cloud", "embedded",
+    "firmware", "hardware", "mobile", "ios", "android", "product", "tpm",
+    "programmer", "tech", "technical", "computer", "computing",
 ]
 
 INTERNSHIP_KEYWORDS = [
@@ -40,7 +44,7 @@ USA_NAME_HINTS = [
     "usa", "united states", "u.s.", "u.s.a", "nyc", "sf", "bay area",
     "silicon valley", "new york city",
 ]
-CANADA_NAME_HINTS = ["canada", "ca"]
+CANADA_NAME_HINTS = ["canada"]
 
 
 def role_matches(title_text: str) -> bool:
@@ -82,10 +86,49 @@ def _strip_html(cell: str) -> str:
     return re.sub(r"<[^>]+>", "", cell).strip()
 
 
+def extract_link(cell: str) -> str:
+    """Extract actual application URL from a table cell, ignoring badge/image URLs."""
+    if not cell:
+        return ""
+    # 1. Try HTML href attribute: <a href="URL"...>
+    m_html = re.search(r'href=["\']([^"\']+)["\']', cell, re.IGNORECASE)
+    if m_html:
+        url = m_html.group(1).strip()
+        if url and not url.startswith("#"):
+            return url
+
+    # 2. Try markdown link pattern [text](url)
+    md_matches = re.findall(r'\]\((https?://[^\s\)]+)\)', cell)
+    if md_matches:
+        non_img = [
+            u for u in md_matches
+            if not re.search(r'\.(png|jpg|jpeg|gif|svg)(\?.*)?$', u, re.I)
+            and "shields.io" not in u
+            and "imgur.com" not in u
+        ]
+        if non_img:
+            return non_img[-1].strip()
+        return md_matches[-1].strip()
+
+    # 3. Fallback: Any http/https link in text that isn't a badge image
+    raw_urls = re.findall(r'(https?://[^\s\)\"\>]+)', cell)
+    if raw_urls:
+        non_img = [
+            u for u in raw_urls
+            if not re.search(r'\.(png|jpg|jpeg|gif|svg)(\?.*)?$', u, re.I)
+            and "shields.io" not in u
+            and "imgur.com" not in u
+        ]
+        if non_img:
+            return non_img[0].strip()
+        return raw_urls[0].strip()
+
+    return ""
+
+
 def _extract_href(cell: str) -> str:
-    """Pull the first href="..." URL out of an HTML cell."""
-    m = re.search(r'href="([^"]+)"', cell)
-    return m.group(1) if m else ""
+    """Legacy helper alias pointing to extract_link."""
+    return extract_link(cell)
 
 
 def _iter_table_rows(text: str, min_cols: int):
@@ -107,3 +150,4 @@ def _is_junk_row(company_raw: str, title: str) -> bool:
     if set(company_raw) <= {"-", " ", ":"}:
         return True
     return False
+

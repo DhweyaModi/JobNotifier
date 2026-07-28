@@ -1,9 +1,8 @@
 import sys
-import re
 import requests
 from scrapers.base_scraper import (
     role_matches,
-    is_internship,
+    extract_link,
     _iter_table_rows,
     _is_junk_row,
     _strip_html
@@ -13,13 +12,6 @@ SUMMER2027_README_URL = (
     "https://raw.githubusercontent.com/sndsh404/"
     "summer-2027-internships/main/README.md"
 )
-
-def _extract_markdown_link(cell: str) -> str:
-    m = re.search(r'\]\((https?://[^\s\)]+)\)', cell)
-    if m:
-        return m.group(1).strip()
-    m2 = re.search(r'(https?://[^\s\)\"\>]+)', cell)
-    return m2.group(1).strip() if m2 else ""
 
 def fetch_summer2027_jobs():
     """
@@ -44,14 +36,13 @@ def fetch_summer2027_jobs():
             continue
 
         company = _strip_html(company_raw)
-        url = _extract_markdown_link(apply_cell)
+        url = extract_link(apply_cell)
 
         if not role_matches(title):
-            continue
-        if not is_internship(title):
             continue
 
         uid = f"summer2027:{company}:{title}:{url}"
         results.append((uid, title, company, location, url))
 
     return results
+

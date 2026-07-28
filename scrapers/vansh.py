@@ -2,11 +2,10 @@ import sys
 import requests
 from scrapers.base_scraper import (
     role_matches,
-    is_internship,
+    extract_link,
     _iter_table_rows,
     _is_junk_row,
-    _strip_html,
-    _extract_href
+    _strip_html
 )
 
 VANSH_README_URL = (
@@ -42,14 +41,13 @@ def fetch_vansh_jobs():
             company = _strip_html(company_raw)
             last_company = company
 
-        url = _extract_href(link_cell)
+        url = extract_link(link_cell)
 
         if not role_matches(title):
-            continue
-        if not is_internship(title):
             continue
 
         uid = f"vansh:{company}:{title}:{url}"
         results.append((uid, title, company, location, url))
 
     return results
+

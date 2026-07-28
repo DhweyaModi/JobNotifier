@@ -1,5 +1,5 @@
 import requests
-from scrapers.base_scraper import role_matches, is_internship
+from scrapers.base_scraper import role_matches
 
 SIMPLIFY_URL = (
     "https://raw.githubusercontent.com/SimplifyJobs/"
@@ -32,9 +32,8 @@ def fetch_simplify_jobs():
 
         if not role_matches(title):
             continue
-        if not is_internship(title):
-            continue
 
         results.append((uid, title, company, location_str, url))
 
     return results
+

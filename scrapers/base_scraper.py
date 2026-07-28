@@ -42,7 +42,7 @@ CA_PROVINCES = {
 
 USA_NAME_HINTS = [
     "usa", "united states", "u.s.", "u.s.a", "nyc", "sf", "bay area",
-    "silicon valley", "new york city",
+    "silicon valley", "new york city", "us",
 ]
 CANADA_NAME_HINTS = ["canada"]
 
@@ -58,7 +58,7 @@ def is_internship(title_text: str) -> bool:
 
 
 def _tokenize_location(location_text: str) -> list:
-    parts = re.split(r"[,/()]", location_text.lower())
+    parts = re.split(r"[,/()\+\s]+", location_text.lower())
     return [p.strip() for p in parts if p.strip()]
 
 
@@ -67,8 +67,8 @@ def classify_country(location_text: str) -> str:
     tokens = _tokenize_location(location_text)
     token_set = set(tokens)
 
-    is_usa = bool(token_set & US_STATES) or any(h in location_text.lower() for h in USA_NAME_HINTS)
-    is_canada = bool(token_set & CA_PROVINCES) or any(h in location_text.lower() for h in CANADA_NAME_HINTS)
+    is_usa = bool(token_set & US_STATES) or bool(token_set & set(USA_NAME_HINTS)) or any(h in location_text.lower() for h in USA_NAME_HINTS)
+    is_canada = bool(token_set & CA_PROVINCES) or bool(token_set & set(CANADA_NAME_HINTS)) or any(h in location_text.lower() for h in CANADA_NAME_HINTS)
 
     if is_canada and is_usa:
         return "both"
@@ -77,6 +77,7 @@ def classify_country(location_text: str) -> str:
     if is_usa:
         return "usa"
     return "other"
+
 
 
 # --- Shared HTML/Markdown Parsing Helpers ----------------------------------

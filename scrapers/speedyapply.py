@@ -2,11 +2,10 @@ import sys
 import requests
 from scrapers.base_scraper import (
     role_matches,
-    is_internship,
+    extract_link,
     _iter_table_rows,
     _is_junk_row,
-    _strip_html,
-    _extract_href
+    _strip_html
 )
 
 SPEEDYAPPLY_SOURCES = [
@@ -42,11 +41,9 @@ def _fetch_speedyapply_source(label: str, url: str):
             continue
 
         company = _strip_html(company_raw)
-        url_ = _extract_href(posting_cell)
+        url_ = extract_link(posting_cell)
 
         if not role_matches(title):
-            continue
-        if not is_internship(title):
             continue
 
         uid = f"{label}:{company}:{title}:{url_}"
@@ -61,3 +58,4 @@ def fetch_speedyapply_ai_jobs():
 def fetch_speedyapply_swe_jobs():
     label, url = SPEEDYAPPLY_SOURCES[1]
     return _fetch_speedyapply_source(label, url)
+

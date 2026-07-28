@@ -1,9 +1,8 @@
 import sys
-import re
 import requests
 from scrapers.base_scraper import (
     role_matches,
-    is_internship,
+    extract_link,
     _iter_table_rows,
     _is_junk_row,
     _strip_html
@@ -21,15 +20,6 @@ CANADIAN_README_URLS = [
         "Canadian-Tech-Internships-2026/main/README-2027.md",
     ),
 ]
-
-def _extract_markdown_link(cell: str) -> str:
-    # Matches the destination of the last markdown link: e.g. ](https://...)
-    m = re.search(r'\]\((https?://[^\s\)]+)\)', cell)
-    if m:
-        return m.group(1).strip()
-    # Fallback to any plain HTTP link in the cell
-    m2 = re.search(r'(https?://[^\s\)\"\>]+)', cell)
-    return m2.group(1).strip() if m2 else ""
 
 def _parse_canadian_readme(text: str, year_label: str):
     results = []
@@ -52,11 +42,9 @@ def _parse_canadian_readme(text: str, year_label: str):
             company = _strip_html(company_raw)
             last_company = company
 
-        url = _extract_markdown_link(apply_cell)
+        url = extract_link(apply_cell)
 
         if not role_matches(title):
-            continue
-        if not is_internship(title):
             continue
 
         uid = f"canadian-{year_label}:{company}:{title}:{url}"
@@ -80,3 +68,4 @@ def fetch_canadian_jobs():
 
         results.extend(_parse_canadian_readme(resp.text, year_label))
     return results
+

@@ -73,6 +73,13 @@ def test_classify_country():
     assert classify_country("Seattle, WA, USA") == "usa"
     assert classify_country("London, UK") == "other"
     assert classify_country("Vancouver, BC / Seattle, WA") == "both"
+    # False positive prevention edge cases
+    assert classify_country("Toronto, ON (In Office)") == "canada"
+    assert classify_country("Toronto, ON or Vancouver, BC") == "canada"
+    assert classify_country("Seattle, WA (On-site)") == "usa"
+    assert classify_country("Campus Locations - Canada") == "canada"
+    assert classify_country("Co-op - Toronto, ON") == "canada"
+    assert classify_country("Remote - US & Canada") == "both"
 
 def test_html_helpers():
     assert _strip_html("<a><strong>Meta</strong></a>") == "Meta"

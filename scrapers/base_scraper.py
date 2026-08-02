@@ -8,7 +8,7 @@ ROLE_KEYWORDS = [
     "full-stack", "scientist", "research", "researcher", "quant", "quantitative",
     "trader", "analyst", "architect", "systems", "system", "infrastructure",
     "sre", "devops", "robotics", "security", "cyber", "cloud", "embedded",
-    "firmware", "hardware", "mobile", "ios", "android", "product", "tpm",
+    "firmware", "hardware", "mobile", "ios", "android", "tpm",
     "programmer", "tech", "technical", "computer", "computing",
 ]
 
@@ -32,6 +32,16 @@ US_STATES = {
     "wi", "wisconsin", "wy", "wyoming", "dc",
 }
 
+US_CITIES = {
+    "nyc", "sf", "bay area", "silicon valley", "new york city", "new york",
+    "seattle", "austin", "san francisco", "san jose", "los angeles", "chicago",
+    "boston", "atlanta", "denver", "dallas", "houston", "san diego", "phoenix",
+    "pittsburgh", "raleigh", "redmond", "cupertino", "mountain view", "palo alto",
+    "menlo park", "sunnyvale", "bellevue", "culver city"
+}
+
+USA_NAME_HINTS = ["usa", "united states", "u.s.", "u.s.a", "us"]
+
 CA_PROVINCES = {
     "ab", "alberta", "bc", "british columbia", "mb", "manitoba",
     "nb", "new brunswick", "nl", "newfoundland", "ns", "nova scotia",
@@ -40,16 +50,25 @@ CA_PROVINCES = {
     "yt", "yukon",
 }
 
-USA_NAME_HINTS = [
-    "usa", "united states", "u.s.", "u.s.a", "nyc", "sf", "bay area",
-    "silicon valley", "new york city", "us",
-]
-CANADA_NAME_HINTS = ["canada"]
+CA_CITIES = {
+    "toronto", "vancouver", "montreal", "waterloo", "ottawa", "calgary",
+    "edmonton", "quebec city", "winnipeg", "halifax", "victoria", "mississauga",
+    "brampton", "hamilton", "kitchener", "burnaby", "surrey",
+    "markham", "richmond", "laval", "gatineau", "sherbrooke", "saskatoon",
+    "regina", "st. john's", "st johns", "guelph", "windsor", "oakville",
+    "burlington", "richmond hill", "vaughan", "kanata"
+}
+
+CANADA_NAME_HINTS = ["canada", "canadian"]
 
 
 def role_matches(title_text: str) -> bool:
     title = title_text.lower()
-    return any(k in title for k in ROLE_KEYWORDS)
+    for kw in ROLE_KEYWORDS:
+        pattern = r"\b" + re.escape(kw) + r"\b"
+        if re.search(pattern, title):
+            return True
+    return False
 
 
 def is_internship(title_text: str) -> bool:
@@ -57,18 +76,68 @@ def is_internship(title_text: str) -> bool:
     return any(k in title for k in INTERNSHIP_KEYWORDS)
 
 
+def _clean_location(location_text: str) -> str:
+    """Strip out common non-geographic modifier words/phrases that cause false positives."""
+    text = location_text.lower()
+    noise_patterns = [
+        r"\bin[- ]office\b",
+        r"\bin[- ]person\b",
+        r"\bin[- ]site\b",
+        r"\bon[- ]site\b",
+        r"\bon[- ]location\b",
+        r"\bonsite\b",
+        r"\boffsite\b",
+        r"\bco[- ]?op\b",
+        r"\bcoop\b",
+        r"\bremote in\b",
+        r"\blocated in\b",
+        r"\bhybrid in\b",
+        r"\boffice in\b",
+        r"\bbased in\b",
+        r"\bor remote\b",
+        r"\bor hybrid\b",
+        r"\bor onsite\b",
+        r"\bor in-person\b",
+        r"\bor in-office\b",
+        r"\bor in person\b",
+        r"\bor in office\b",
+        r"\b or \b",
+    ]
+    for pat in noise_patterns:
+        text = re.sub(pat, " ", text)
+    return text
+
+
 def _tokenize_location(location_text: str) -> list:
-    parts = re.split(r"[,/()\+\s]+", location_text.lower())
+    cleaned = _clean_location(location_text)
+    parts = re.split(r"[,/()\+\s]+", cleaned)
     return [p.strip() for p in parts if p.strip()]
 
 
 def classify_country(location_text: str) -> str:
     """Returns 'canada', 'usa', 'both', or 'other' based on location text."""
+    if not location_text:
+        return "other"
+
+    loc_lower = _clean_location(location_text)
     tokens = _tokenize_location(location_text)
     token_set = set(tokens)
 
-    is_usa = bool(token_set & US_STATES) or bool(token_set & set(USA_NAME_HINTS)) or any(h in location_text.lower() for h in USA_NAME_HINTS)
-    is_canada = bool(token_set & CA_PROVINCES) or bool(token_set & set(CANADA_NAME_HINTS)) or any(h in location_text.lower() for h in CANADA_NAME_HINTS)
+    # Check Canada
+    is_canada = (
+        bool(token_set & CA_PROVINCES)
+        or bool(token_set & set(CANADA_NAME_HINTS))
+        or any(re.search(r"\b" + re.escape(h) + r"\b", loc_lower) for h in CANADA_NAME_HINTS)
+        or any(re.search(r"\b" + re.escape(c) + r"\b", loc_lower) for c in CA_CITIES)
+    )
+
+    # Check USA
+    is_usa = (
+        bool(token_set & US_STATES)
+        or bool(token_set & set(USA_NAME_HINTS))
+        or any(re.search(r"\b" + re.escape(h) + r"\b", loc_lower) for h in USA_NAME_HINTS)
+        or any(re.search(r"\b" + re.escape(c) + r"\b", loc_lower) for c in US_CITIES)
+    )
 
     if is_canada and is_usa:
         return "both"

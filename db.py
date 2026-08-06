@@ -161,14 +161,14 @@ def get_active_users():
                 "email": "admin+canada@jobnotifier.com",
                 "webhook_url": canada_webhook,
                 "platform": "slack",
-                "user_filters": {"countries": ["canada", "both"]}
+                "user_filters": {"countries": ["canada"]}
             })
         if usa_webhook:
             users.append({
                 "email": "admin+usa@jobnotifier.com",
                 "webhook_url": usa_webhook,
                 "platform": "slack",
-                "user_filters": {"countries": ["usa", "both"]}
+                "user_filters": {"countries": ["usa"]}
             })
         if other_webhook and other_webhook not in (canada_webhook, usa_webhook):
             users.append({
@@ -195,7 +195,7 @@ def seed_admin_users():
             webhook_url=canada_webhook,
             platform="slack",
             keywords=[],
-            countries=["canada", "both"],
+            countries=["canada"],
             roles=[]
         )
 
@@ -205,7 +205,7 @@ def seed_admin_users():
             webhook_url=usa_webhook,
             platform="slack",
             keywords=[],
-            countries=["usa", "both"],
+            countries=["usa"],
             roles=[]
         )
 

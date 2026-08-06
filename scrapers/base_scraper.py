@@ -77,8 +77,9 @@ def is_internship(title_text: str) -> bool:
 
 
 def _clean_location(location_text: str) -> str:
-    """Strip out common non-geographic modifier words/phrases that cause false positives."""
-    text = location_text.lower()
+    """Strip out HTML tags and common non-geographic modifier words/phrases."""
+    text = re.sub(r"<[^>]+>", " ", location_text)
+    text = text.lower()
     noise_patterns = [
         r"\bin[- ]office\b",
         r"\bin[- ]person\b",
@@ -123,21 +124,25 @@ def classify_country(location_text: str) -> str:
     tokens = _tokenize_location(location_text)
     token_set = set(tokens)
 
-    # Check Canada
-    is_canada = (
-        bool(token_set & CA_PROVINCES)
-        or bool(token_set & set(CANADA_NAME_HINTS))
-        or any(re.search(r"\b" + re.escape(h) + r"\b", loc_lower) for h in CANADA_NAME_HINTS)
-        or any(re.search(r"\b" + re.escape(c) + r"\b", loc_lower) for c in CA_CITIES)
+    # Check explicit Canada indicators
+    has_ca_province = bool(token_set & CA_PROVINCES)
+    has_ca_country = bool(re.search(r"\bcanada\b", loc_lower)) or (
+        bool(re.search(r"\bcanadian\b", loc_lower)) and "canadian county" not in loc_lower
     )
+    ca_city_matches = {c for c in CA_CITIES if re.search(r"\b" + re.escape(c) + r"\b", loc_lower)}
+    has_ca_city = bool(ca_city_matches)
 
-    # Check USA
-    is_usa = (
-        bool(token_set & US_STATES)
-        or bool(token_set & set(USA_NAME_HINTS))
-        or any(re.search(r"\b" + re.escape(h) + r"\b", loc_lower) for h in USA_NAME_HINTS)
-        or any(re.search(r"\b" + re.escape(c) + r"\b", loc_lower) for c in US_CITIES)
-    )
+    # Check explicit US indicators
+    has_us_state = bool(token_set & US_STATES)
+    has_us_country = any(re.search(r"\b" + re.escape(h) + r"\b", loc_lower) for h in USA_NAME_HINTS)
+    us_city_matches = {c for c in US_CITIES if re.search(r"\b" + re.escape(c) + r"\b", loc_lower)}
+    has_us_city = bool(us_city_matches)
+
+    # Determine Canada (explicit province/country tag, OR CA city without conflicting US state/country tags)
+    is_canada = has_ca_province or has_ca_country or (has_ca_city and not (has_us_state or has_us_country))
+
+    # Determine USA (explicit state, country, or city tag)
+    is_usa = has_us_state or has_us_country or has_us_city
 
     if is_canada and is_usa:
         return "both"

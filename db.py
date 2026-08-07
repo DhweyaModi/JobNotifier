@@ -40,7 +40,7 @@ def _save_local_seen_jobs(seen_jobs: set):
         print(f"Warning saving {SEEN_JOBS_FILE}: {e}", flush=True)
 
 
-def upsert_job(uid: str, source: str, title: str, company: str, location: str, country: str, url: str) -> bool:
+def upsert_job(uid: str, source: str, title: str, company: str, location: str, country: str, url: str, posted_timestamp: int = 0, posted_date_str: str = "") -> bool:
     """
     Inserts a job into Supabase and local seen_jobs.json fallback.
     Returns True if it is a new job (successfully inserted), False if already seen.
@@ -71,17 +71,10 @@ def upsert_job(uid: str, source: str, title: str, company: str, location: str, c
             if e.code == "23505": # Duplicate key
                 is_new = False
             else:
-                print(f"Supabase APIError during insert: {e}", flush=True)
                 is_new = True
-        except Exception as e:
-            err_str = str(e)
-            if "23505" in err_str or "duplicate key" in err_str:
-                is_new = False
-            else:
-                print(f"Unexpected Supabase error: {e}", flush=True)
-                is_new = True
+        except Exception:
+            is_new = True
     else:
-        # Without Supabase, any UID not in local_seen is new
         is_new = True
 
     if is_new:

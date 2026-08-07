@@ -11,6 +11,8 @@ export interface Job {
   country: CountryCategory;
   url: string;
   createdAt?: string;
+  postedTimestamp?: number;
+  postedDateStr?: string;
   applicationStatus?: ApplicationStatus;
   notes?: string;
   appliedDate?: string;

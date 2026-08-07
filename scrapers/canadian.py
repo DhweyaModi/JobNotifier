@@ -44,11 +44,13 @@ def _parse_canadian_readme(text: str, year_label: str):
 
         url = extract_link(apply_cell)
 
+        date_posted = _strip_html(cells[4]) if len(cells) > 4 else ""
+
         if not role_matches(title):
             continue
 
         uid = f"canadian-{year_label}:{company}:{title}:{url}"
-        results.append((uid, title, company, location, url))
+        results.append((uid, title, company, location, url, date_posted))
 
     return results
 

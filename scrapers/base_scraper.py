@@ -226,3 +226,70 @@ def _is_junk_row(company_raw: str, title: str) -> bool:
         return True
     return False
 
+
+def parse_job_date(date_val, current_year=2026):
+    """Converts raw date values into (unix_timestamp, human_display_string)."""
+    from datetime import datetime, timedelta, timezone
+    if not date_val:
+        return 0, ""
+
+    if isinstance(date_val, (int, float)):
+        try:
+            dt = datetime.fromtimestamp(date_val, tz=timezone.utc)
+            return int(date_val), dt.strftime("%b %d, %Y")
+        except Exception:
+            return 0, ""
+
+    s = str(date_val).strip()
+    if not s or s.lower() in ("-", "age", "added", "date", "n/a", "posting"):
+        return 0, ""
+
+    now = datetime.now(timezone.utc)
+
+    # Relative age (e.g. 0d, 1d, 2d, 12h, 30m)
+    m_rel = re.match(r"^(\d+)\s*([dhm])$", s, re.IGNORECASE)
+    if m_rel:
+        num = int(m_rel.group(1))
+        unit = m_rel.group(2).lower()
+        if unit == "d":
+            dt = now - timedelta(days=num)
+        elif unit == "h":
+            dt = now - timedelta(hours=num)
+        elif unit == "m":
+            dt = now - timedelta(minutes=num)
+        else:
+            dt = now
+        ts = int(dt.timestamp())
+        return ts, f"{num}{unit} ago" if num > 0 else "Just now"
+
+    # Format YYYY-MM-DD
+    m_iso = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", s)
+    if m_iso:
+        dt = datetime(int(m_iso.group(1)), int(m_iso.group(2)), int(m_iso.group(3)), tzinfo=timezone.utc)
+        ts = int(dt.timestamp())
+        diff_hours = int((now - dt).total_seconds() / 3600)
+        if 0 <= diff_hours < 24:
+            return ts, f"{max(1, diff_hours)}h ago"
+        return ts, dt.strftime("%b %d, %Y")
+
+    # Format Aug 4, 2026 or Aug 05
+    for fmt in ("%b %d, %Y", "%b %d %Y", "%B %d, %Y", "%b %d", "%B %d"):
+        try:
+            dt = datetime.strptime(s, fmt)
+            if dt.year == 1900:
+                dt = dt.replace(year=current_year)
+                dt_utc = dt.replace(tzinfo=timezone.utc)
+                if dt_utc > now:
+                    dt = dt.replace(year=current_year - 1)
+            dt = dt.replace(tzinfo=timezone.utc)
+            ts = int(dt.timestamp())
+            diff_hours = int((now - dt).total_seconds() / 3600)
+            if 0 <= diff_hours < 24:
+                return ts, f"{max(1, diff_hours)}h ago"
+            return ts, dt.strftime("%b %d, %Y")
+        except ValueError:
+            pass
+
+    return 0, s
+
+

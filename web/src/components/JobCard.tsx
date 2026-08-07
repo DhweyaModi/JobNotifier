@@ -125,11 +125,38 @@ export const JobCard: React.FC<JobCardProps> = ({
           {job.title}
         </h3>
 
-        {/* Location Info */}
-        <p className="text-xs text-slate-400 flex items-center gap-1.5 mb-4 line-clamp-1">
-          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-          <span>{job.location || "Location Not Specified"}</span>
-        </p>
+        {/* Location & Posted Date Info */}
+        <div className="flex items-center justify-between gap-2 text-xs text-slate-400 mb-4">
+          <span className="flex items-center gap-1.5 line-clamp-1">
+            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <span>{job.location || "Location Not Specified"}</span>
+          </span>
+
+          {(() => {
+            const timeTag = (() => {
+              if (job.postedTimestamp && job.postedTimestamp > 0) {
+                const nowSec = Math.floor(Date.now() / 1000);
+                const diffSec = nowSec - job.postedTimestamp;
+                if (diffSec < 60 && diffSec >= 0) return "Just now";
+                const mins = Math.floor(diffSec / 60);
+                if (mins < 60 && mins > 0) return `${mins}m ago`;
+                const hours = Math.floor(mins / 60);
+                if (hours < 24 && hours > 0) return `${hours}h ago`;
+                const days = Math.floor(hours / 24);
+                if (days === 1) return "1d ago";
+                if (days < 7 && days > 1) return `${days}d ago`;
+              }
+              return job.postedDateStr || "Recently";
+            })();
+
+            return (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-800/50 shrink-0">
+                <Calendar className="w-3 h-3 text-emerald-400" />
+                <span>{timeTag}</span>
+              </span>
+            );
+          })()}
+        </div>
       </div>
 
       {/* Footer Controls: Apply Link & Status Selector */}

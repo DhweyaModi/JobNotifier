@@ -171,7 +171,8 @@ export default function Home() {
         } else if (filters.sortBy === "title") {
           return a.title.localeCompare(b.title);
         }
-        return 0; // Default order
+        // Default: Newest first (highest timestamp)
+        return (b.postedTimestamp || 0) - (a.postedTimestamp || 0);
       });
   }, [jobs, filters]);
 

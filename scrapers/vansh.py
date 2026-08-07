@@ -43,11 +43,13 @@ def fetch_vansh_jobs():
 
         url = extract_link(link_cell)
 
+        date_posted = _strip_html(_date) if _date else ""
+
         if not role_matches(title):
             continue
 
         uid = f"vansh:{company}:{title}:{url}"
-        results.append((uid, title, company, location, url))
+        results.append((uid, title, company, location, url, date_posted))
 
     return results
 

@@ -1,5 +1,0 @@
-{
-  "framework": "nextjs",
-  "buildCommand": "cd web && npm run build",
-  "outputDirectory": "web/.next"
-}

@@ -26,13 +26,15 @@ def main():
         print(f"[{label}] fetched {len(jobs)} matching job(s) before dedup", flush=True)
 
         new_count = 0
-        for uid, title, company, location, url in jobs:
-            # We determine the country category to store it in the database
-            from scrapers.base_scraper import classify_country
+        for item in jobs:
+            uid, title, company, location, url = item[:5]
+            raw_date = item[5] if len(item) > 5 else None
+            from scrapers.base_scraper import classify_country, parse_job_date
             country = classify_country(location)
+            ts, date_str = parse_job_date(raw_date)
 
-            # Try to insert/upsert job
-            is_new = db.upsert_job(uid, label, title, company, location, country, url)
+            # Try to insert/upsert job into database
+            is_new = db.upsert_job(uid, label, title, company, location, country, url, ts, date_str)
             if not is_new:
                 continue
 

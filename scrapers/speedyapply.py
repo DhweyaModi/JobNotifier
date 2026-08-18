@@ -42,12 +42,13 @@ def _fetch_speedyapply_source(label: str, url: str):
 
         company = _strip_html(company_raw)
         url_ = extract_link(posting_cell)
+        date_posted = _strip_html(_age) if _age else ""
 
         if not role_matches(title):
             continue
 
         uid = f"{label}:{company}:{title}:{url_}"
-        results.append((uid, title, company, location, url_))
+        results.append((uid, title, company, location, url_, date_posted))
 
     return results
 

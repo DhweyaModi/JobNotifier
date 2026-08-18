@@ -34,7 +34,7 @@ def match_job_filters(job: tuple, filters: dict) -> bool:
                 matched_country = True
             elif c_lower == "usa" and job_country in ("usa", "both"):
                 matched_country = True
-            elif c_lower == "both" and job_country in ("canada", "usa", "both"):
+            elif c_lower == "both" and job_country == "both":
                 matched_country = True
             elif c_lower == "other" and job_country == "other":
                 matched_country = True

@@ -33,7 +33,8 @@ def fetch_simplify_jobs():
         if not role_matches(title):
             continue
 
-        results.append((uid, title, company, location_str, url))
+        date_posted = entry.get("date_posted") or entry.get("date_updated")
+        results.append((uid, title, company, location_str, url, date_posted))
 
     return results
 

@@ -77,8 +77,9 @@ def is_internship(title_text: str) -> bool:
 
 
 def _clean_location(location_text: str) -> str:
-    """Strip out common non-geographic modifier words/phrases that cause false positives."""
-    text = location_text.lower()
+    """Strip out HTML tags and common non-geographic modifier words/phrases."""
+    text = re.sub(r"<[^>]+>", " ", location_text)
+    text = text.lower()
     noise_patterns = [
         r"\bin[- ]office\b",
         r"\bin[- ]person\b",
@@ -123,21 +124,25 @@ def classify_country(location_text: str) -> str:
     tokens = _tokenize_location(location_text)
     token_set = set(tokens)
 
-    # Check Canada
-    is_canada = (
-        bool(token_set & CA_PROVINCES)
-        or bool(token_set & set(CANADA_NAME_HINTS))
-        or any(re.search(r"\b" + re.escape(h) + r"\b", loc_lower) for h in CANADA_NAME_HINTS)
-        or any(re.search(r"\b" + re.escape(c) + r"\b", loc_lower) for c in CA_CITIES)
+    # Check explicit Canada indicators
+    has_ca_province = bool(token_set & CA_PROVINCES)
+    has_ca_country = bool(re.search(r"\bcanada\b", loc_lower)) or (
+        bool(re.search(r"\bcanadian\b", loc_lower)) and "canadian county" not in loc_lower
     )
+    ca_city_matches = {c for c in CA_CITIES if re.search(r"\b" + re.escape(c) + r"\b", loc_lower)}
+    has_ca_city = bool(ca_city_matches)
 
-    # Check USA
-    is_usa = (
-        bool(token_set & US_STATES)
-        or bool(token_set & set(USA_NAME_HINTS))
-        or any(re.search(r"\b" + re.escape(h) + r"\b", loc_lower) for h in USA_NAME_HINTS)
-        or any(re.search(r"\b" + re.escape(c) + r"\b", loc_lower) for c in US_CITIES)
-    )
+    # Check explicit US indicators
+    has_us_state = bool(token_set & US_STATES)
+    has_us_country = any(re.search(r"\b" + re.escape(h) + r"\b", loc_lower) for h in USA_NAME_HINTS)
+    us_city_matches = {c for c in US_CITIES if re.search(r"\b" + re.escape(c) + r"\b", loc_lower)}
+    has_us_city = bool(us_city_matches)
+
+    # Determine Canada (explicit province/country tag, OR CA city without conflicting US state/country tags)
+    is_canada = has_ca_province or has_ca_country or (has_ca_city and not (has_us_state or has_us_country))
+
+    # Determine USA (explicit state, country, or city tag)
+    is_usa = has_us_state or has_us_country or has_us_city
 
     if is_canada and is_usa:
         return "both"
@@ -220,4 +225,71 @@ def _is_junk_row(company_raw: str, title: str) -> bool:
     if set(company_raw) <= {"-", " ", ":"}:
         return True
     return False
+
+
+def parse_job_date(date_val, current_year=2026):
+    """Converts raw date values into (unix_timestamp, human_display_string)."""
+    from datetime import datetime, timedelta, timezone
+    if not date_val:
+        return 0, ""
+
+    if isinstance(date_val, (int, float)):
+        try:
+            dt = datetime.fromtimestamp(date_val, tz=timezone.utc)
+            return int(date_val), dt.strftime("%b %d, %Y")
+        except Exception:
+            return 0, ""
+
+    s = str(date_val).strip()
+    if not s or s.lower() in ("-", "age", "added", "date", "n/a", "posting"):
+        return 0, ""
+
+    now = datetime.now(timezone.utc)
+
+    # Relative age (e.g. 0d, 1d, 2d, 12h, 30m)
+    m_rel = re.match(r"^(\d+)\s*([dhm])$", s, re.IGNORECASE)
+    if m_rel:
+        num = int(m_rel.group(1))
+        unit = m_rel.group(2).lower()
+        if unit == "d":
+            dt = now - timedelta(days=num)
+        elif unit == "h":
+            dt = now - timedelta(hours=num)
+        elif unit == "m":
+            dt = now - timedelta(minutes=num)
+        else:
+            dt = now
+        ts = int(dt.timestamp())
+        return ts, f"{num}{unit} ago" if num > 0 else "Just now"
+
+    # Format YYYY-MM-DD
+    m_iso = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", s)
+    if m_iso:
+        dt = datetime(int(m_iso.group(1)), int(m_iso.group(2)), int(m_iso.group(3)), tzinfo=timezone.utc)
+        ts = int(dt.timestamp())
+        diff_hours = int((now - dt).total_seconds() / 3600)
+        if 0 <= diff_hours < 24:
+            return ts, f"{max(1, diff_hours)}h ago"
+        return ts, dt.strftime("%b %d, %Y")
+
+    # Format Aug 4, 2026 or Aug 05
+    for fmt in ("%b %d, %Y", "%b %d %Y", "%B %d, %Y", "%b %d", "%B %d"):
+        try:
+            dt = datetime.strptime(s, fmt)
+            if dt.year == 1900:
+                dt = dt.replace(year=current_year)
+                dt_utc = dt.replace(tzinfo=timezone.utc)
+                if dt_utc > now:
+                    dt = dt.replace(year=current_year - 1)
+            dt = dt.replace(tzinfo=timezone.utc)
+            ts = int(dt.timestamp())
+            diff_hours = int((now - dt).total_seconds() / 3600)
+            if 0 <= diff_hours < 24:
+                return ts, f"{max(1, diff_hours)}h ago"
+            return ts, dt.strftime("%b %d, %Y")
+        except ValueError:
+            pass
+
+    return 0, s
+
 

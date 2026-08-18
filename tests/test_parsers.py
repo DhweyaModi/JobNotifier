@@ -80,6 +80,41 @@ def test_classify_country():
     assert classify_country("Campus Locations - Canada") == "canada"
     assert classify_country("Co-op - Toronto, ON") == "canada"
     assert classify_country("Remote - US & Canada") == "both"
+    # US cities with names matching CA cities (Richmond VA, Burlington MA, Markham IL, Waterloo IA)
+    assert classify_country("Richmond, VA") == "usa"
+    assert classify_country("Burlington, MA") == "usa"
+    assert classify_country("Markham, IL") == "usa"
+    assert classify_country("Waterloo, IA") == "usa"
+    assert classify_country("Canadian County, OK") == "usa"
+
+def test_match_job_filters():
+    from notifier import match_job_filters
+    
+    canadian_job = ("Canadian", "Firmware Developer Co-op", "Arlo", "Richmond, BC", "https://example.com/1")
+    usa_job = ("Simplify", "Software Intern", "Etched.ai", "San Jose, CA", "https://example.com/2")
+    both_job = ("Simplify", "ML Intern", "Yotta Labs", "Remote in USA, Remote in Canada", "https://example.com/3")
+    other_job = ("Simplify", "SWE Intern", "Company", "London, UK", "https://example.com/4")
+    
+    canada_filter = {"countries": ["canada"]}
+    usa_filter = {"countries": ["usa"]}
+    other_filter = {"countries": ["other"]}
+    
+    # Canada channel should match Canadian jobs & Both jobs, but NOT USA or Other jobs
+    assert match_job_filters(canadian_job, canada_filter) is True
+    assert match_job_filters(both_job, canada_filter) is True
+    assert match_job_filters(usa_job, canada_filter) is False
+    assert match_job_filters(other_job, canada_filter) is False
+
+    # USA channel should match USA jobs & Both jobs, but NOT Canadian or Other jobs
+    assert match_job_filters(usa_job, usa_filter) is True
+    assert match_job_filters(both_job, usa_filter) is True
+    assert match_job_filters(canadian_job, usa_filter) is False
+    assert match_job_filters(other_job, usa_filter) is False
+    
+    # Other channel should match Other jobs only
+    assert match_job_filters(other_job, other_filter) is True
+    assert match_job_filters(canadian_job, other_filter) is False
+    assert match_job_filters(usa_job, other_filter) is False
 
 def test_html_helpers():
     assert _strip_html("<a><strong>Meta</strong></a>") == "Meta"

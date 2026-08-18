@@ -32,17 +32,15 @@ def fetch_summer2027_jobs():
         location = cells[2]
         apply_cell = cells[3]
 
-        if _is_junk_row(company_raw, title):
-            continue
-
         company = _strip_html(company_raw)
         url = extract_link(apply_cell)
+        date_posted = _strip_html(cells[4]) if len(cells) > 4 else ""
 
         if not role_matches(title):
             continue
 
         uid = f"summer2027:{company}:{title}:{url}"
-        results.append((uid, title, company, location, url))
+        results.append((uid, title, company, location, url, date_posted))
 
     return results
 

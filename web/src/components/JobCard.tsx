@@ -9,6 +9,7 @@ interface JobCardProps {
   onStatusChange: (jobId: string, status: ApplicationStatus) => void;
   isBookmarked: boolean;
   onToggleBookmark: (jobId: string) => void;
+  onSelectCountry?: (country: string) => void;
 }
 
 function formatExactTime(scrapedAt?: string, createdAt?: string, postedTimestamp?: number): string {
@@ -49,32 +50,65 @@ export const JobCard: React.FC<JobCardProps> = ({
   onStatusChange,
   isBookmarked,
   onToggleBookmark,
+  onSelectCountry,
 }) => {
   const getCountryBadge = (country: string) => {
     switch (country) {
       case "canada":
         return (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-red-950/80 text-red-300 border border-red-800/60 shadow-sm">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectCountry?.("canada");
+            }}
+            title="Click to filter by Canada channel"
+            className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-red-950/80 hover:bg-red-900/90 text-red-300 hover:text-red-100 border border-red-800/60 shadow-sm transition cursor-pointer"
+          >
             🇨🇦 Canada
-          </span>
+          </button>
         );
       case "usa":
         return (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-950/80 text-blue-300 border border-blue-800/60 shadow-sm">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectCountry?.("usa");
+            }}
+            title="Click to filter by USA channel"
+            className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-950/80 hover:bg-blue-900/90 text-blue-300 hover:text-blue-100 border border-blue-800/60 shadow-sm transition cursor-pointer"
+          >
             🇺🇸 USA
-          </span>
+          </button>
         );
       case "both":
         return (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-950/80 text-cyan-300 border border-indigo-700/60 shadow-sm">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectCountry?.("both");
+            }}
+            title="Click to filter by Cross-Border channel"
+            className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-950/80 hover:bg-indigo-900/90 text-cyan-300 hover:text-cyan-100 border border-indigo-700/60 shadow-sm transition cursor-pointer"
+          >
             🇨🇦🇺🇸 Cross-Border
-          </span>
+          </button>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectCountry?.("other");
+            }}
+            title="Click to filter by International"
+            className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer"
+          >
             🌍 International
-          </span>
+          </button>
         );
     }
   };

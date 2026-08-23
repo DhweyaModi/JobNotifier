@@ -7,43 +7,89 @@ import { Globe, MapPin, CheckCircle2, Zap } from "lucide-react";
 interface StatsBannerProps {
   jobs: Job[];
   trackedCount: number;
+  selectedCountry?: string;
+  onSelectCountry?: (country: string) => void;
 }
 
-export const StatsBanner: React.FC<StatsBannerProps> = ({ jobs, trackedCount }) => {
+export const StatsBanner: React.FC<StatsBannerProps> = ({
+  jobs,
+  trackedCount,
+  selectedCountry = "all",
+  onSelectCountry,
+}) => {
   const canadaCount = jobs.filter((j) => j.country === "canada").length;
   const usaCount = jobs.filter((j) => j.country === "usa").length;
   const bothCount = jobs.filter((j) => j.country === "both").length;
 
+  const handleCardClick = (country: string) => {
+    if (!onSelectCountry) return;
+    if (selectedCountry === country) {
+      onSelectCountry("all"); // Toggle off
+    } else {
+      onSelectCountry(country);
+    }
+  };
+
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       {/* Total Scraped Jobs */}
-      <div className="glass-card p-4 rounded-2xl relative overflow-hidden group">
+      <button
+        onClick={() => handleCardClick("all")}
+        className={`glass-card p-4 rounded-2xl relative overflow-hidden group text-left transition-all duration-200 cursor-pointer ${
+          selectedCountry === "all"
+            ? "ring-2 ring-indigo-500/80 bg-indigo-950/30 shadow-lg shadow-indigo-950/50"
+            : "hover:border-slate-600 hover:-translate-y-0.5"
+        }`}
+      >
         <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition text-indigo-400">
           <Zap className="w-16 h-16" />
         </div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-          Total Scraped Jobs
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1 flex items-center justify-between">
+          <span>All Jobs</span>
+          {selectedCountry === "all" && (
+            <span className="text-[10px] text-indigo-300 bg-indigo-900/60 px-1.5 py-0.5 rounded font-mono">
+              Active
+            </span>
+          )}
         </p>
         <div className="flex items-baseline gap-2">
           <h3 className="text-2xl lg:text-3xl font-black text-white font-mono">
             {jobs.length}
           </h3>
-          <span className="text-xs text-emerald-400 font-medium">Verified</span>
+          <span className="text-xs text-emerald-400 font-medium">Live</span>
         </div>
-        <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
+        <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          All scrapers active & filtered
+          <span>Click to show all listings</span>
         </p>
-      </div>
+      </button>
 
-      {/* Canada Feed */}
-      <div className="glass-card p-4 rounded-2xl relative overflow-hidden group border-l-4 border-l-red-500">
+      {/* Canada Channel Card */}
+      <button
+        onClick={() => handleCardClick("canada")}
+        className={`glass-card p-4 rounded-2xl relative overflow-hidden group text-left border-l-4 border-l-red-500 transition-all duration-200 cursor-pointer ${
+          selectedCountry === "canada"
+            ? "ring-2 ring-red-500/90 bg-red-950/40 shadow-lg shadow-red-950/50"
+            : "hover:border-slate-600 hover:-translate-y-0.5"
+        }`}
+      >
         <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition text-red-400">
           <MapPin className="w-16 h-16" />
         </div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5">
-          <span>Canada Channel</span>
-          <span>🇨🇦</span>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1 flex items-center justify-between">
+          <span className="flex items-center gap-1.5">
+            <span>Canada Channel</span>
+            <span>🇨🇦</span>
+          </span>
+          {selectedCountry === "canada" ? (
+            <span className="text-[10px] font-bold text-red-200 bg-red-800/80 px-1.5 py-0.5 rounded shadow">
+              Filtered ✓
+            </span>
+          ) : (
+            <span className="text-[10px] text-slate-400 group-hover:text-red-300 transition">
+              Filter →
+            </span>
+          )}
         </p>
         <div className="flex items-baseline gap-2">
           <h3 className="text-2xl lg:text-3xl font-black text-white font-mono">
@@ -53,19 +99,37 @@ export const StatsBanner: React.FC<StatsBannerProps> = ({ jobs, trackedCount }) 
             Strict Filter
           </span>
         </div>
-        <p className="text-xs text-slate-500 mt-2">
+        <p className="text-xs text-slate-400 mt-2">
           Toronto, BC, Waterloo & Remote CA
         </p>
-      </div>
+      </button>
 
-      {/* USA Feed */}
-      <div className="glass-card p-4 rounded-2xl relative overflow-hidden group border-l-4 border-l-blue-500">
+      {/* USA Channel Card */}
+      <button
+        onClick={() => handleCardClick("usa")}
+        className={`glass-card p-4 rounded-2xl relative overflow-hidden group text-left border-l-4 border-l-blue-500 transition-all duration-200 cursor-pointer ${
+          selectedCountry === "usa"
+            ? "ring-2 ring-blue-500/90 bg-blue-950/40 shadow-lg shadow-blue-950/50"
+            : "hover:border-slate-600 hover:-translate-y-0.5"
+        }`}
+      >
         <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition text-blue-400">
           <MapPin className="w-16 h-16" />
         </div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5">
-          <span>USA Channel</span>
-          <span>🇺🇸</span>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1 flex items-center justify-between">
+          <span className="flex items-center gap-1.5">
+            <span>USA Channel</span>
+            <span>🇺🇸</span>
+          </span>
+          {selectedCountry === "usa" ? (
+            <span className="text-[10px] font-bold text-blue-200 bg-blue-800/80 px-1.5 py-0.5 rounded shadow">
+              Filtered ✓
+            </span>
+          ) : (
+            <span className="text-[10px] text-slate-400 group-hover:text-blue-300 transition">
+              Filter →
+            </span>
+          )}
         </p>
         <div className="flex items-baseline gap-2">
           <h3 className="text-2xl lg:text-3xl font-black text-white font-mono">
@@ -75,18 +139,34 @@ export const StatsBanner: React.FC<StatsBannerProps> = ({ jobs, trackedCount }) 
             Strict Filter
           </span>
         </div>
-        <p className="text-xs text-slate-500 mt-2">
+        <p className="text-xs text-slate-400 mt-2">
           SF, NYC, Seattle, Austin & Remote US
         </p>
-      </div>
+      </button>
 
-      {/* Cross-Border & Tracked */}
-      <div className="glass-card p-4 rounded-2xl relative overflow-hidden group border-l-4 border-l-indigo-500">
+      {/* Cross-Border & Tracked Card */}
+      <button
+        onClick={() => handleCardClick("both")}
+        className={`glass-card p-4 rounded-2xl relative overflow-hidden group text-left border-l-4 border-l-indigo-500 transition-all duration-200 cursor-pointer ${
+          selectedCountry === "both"
+            ? "ring-2 ring-cyan-500/90 bg-indigo-950/40 shadow-lg shadow-indigo-950/50"
+            : "hover:border-slate-600 hover:-translate-y-0.5"
+        }`}
+      >
         <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition text-indigo-400">
           <Globe className="w-16 h-16" />
         </div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-          Cross-Border & Applications
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1 flex items-center justify-between">
+          <span>Cross-Border</span>
+          {selectedCountry === "both" ? (
+            <span className="text-[10px] font-bold text-cyan-200 bg-cyan-900/80 px-1.5 py-0.5 rounded shadow">
+              Filtered ✓
+            </span>
+          ) : (
+            <span className="text-[10px] text-slate-400 group-hover:text-cyan-300 transition">
+              Filter →
+            </span>
+          )}
         </p>
         <div className="flex items-baseline gap-3">
           <div>
@@ -99,11 +179,11 @@ export const StatsBanner: React.FC<StatsBannerProps> = ({ jobs, trackedCount }) 
             <span className="text-xl font-bold text-emerald-400 font-mono">{trackedCount}</span>
           </div>
         </div>
-        <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
+        <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
           <CheckCircle2 className="w-3 h-3 text-indigo-400" />
-          Status pipeline active
+          <span>🇨🇦🇺🇸 Dual eligible roles</span>
         </p>
-      </div>
+      </button>
     </div>
   );
 };

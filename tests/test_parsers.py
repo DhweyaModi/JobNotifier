@@ -195,3 +195,59 @@ def test_speedyapply_parser():
         assert results[0][4] == "https://meta.com/jobs"
 
 
+def test_deduplication_normalization():
+    from scrapers.base_scraper import normalize_company, normalize_title, normalize_url, generate_dedup_keys
+
+    # Company normalization
+    assert normalize_company("Datadog, Inc.") == "datadog"
+    assert normalize_company("Shopify Labs Ltd.") == "shopify"
+    assert normalize_company("Meta Platforms (US)") == "meta"
+
+    # Title normalization
+    assert normalize_title("Software Engineering Intern - Summer 2026") == "software engineer"
+    assert normalize_title("SWE Intern (2026/2027)") == "software engineer"
+    assert normalize_title("Software Developer Co-op") == "software engineer"
+    assert normalize_title("Data Science Intern - Fall 2026") == "data scientist"
+    assert normalize_title("Machine Learning Intern") == "machine learning"
+
+    # URL normalization
+    assert normalize_url("https://boards.greenhouse.io/stripe/jobs/123456?gh_src=summer2026&utm_campaign=tracker") == "boards.greenhouse.io/stripe/jobs/123456"
+    assert normalize_url("https://boards.greenhouse.io/stripe/jobs/123456/") == "boards.greenhouse.io/stripe/jobs/123456"
+
+    # Dedup keys match across duplicate scrapers
+    keys1 = generate_dedup_keys("Datadog, Inc.", "Software Engineering Intern - Summer 2026", "usa", "https://boards.greenhouse.io/datadog/jobs/101?utm_source=gh")
+    keys2 = generate_dedup_keys("Datadog", "SWE Intern", "usa", "https://boards.greenhouse.io/datadog/jobs/101")
+    
+    # Common URL key and role key must overlap
+    assert "url:boards.greenhouse.io/datadog/jobs/101" in keys1
+    assert "url:boards.greenhouse.io/datadog/jobs/101" in keys2
+    assert "role:datadog:software engineer:usa" in keys1
+    assert "role:datadog:software engineer:usa" in keys2
+
+
+def test_notifier_deduplication():
+    from notifier import notify_users
+
+    # Duplicate job representations across different scrapers
+    job1 = ("SimplifyJobs", "Software Engineering Intern - Summer 2026", "Datadog, Inc.", "New York, NY", "https://boards.greenhouse.io/datadog/jobs/101")
+    job2 = ("SpeedyApply-SWE", "SWE Intern", "Datadog", "New York, NY", "https://boards.greenhouse.io/datadog/jobs/101?gh_src=test")
+
+    with patch("db.get_active_users") as mock_users, patch("requests.post") as mock_post:
+        mock_users.return_value = [{
+            "email": "test@user.com",
+            "webhook_url": "https://hooks.slack.com/services/mock",
+            "platform": "slack",
+            "user_filters": {"countries": ["usa"]}
+        }]
+        mock_post.return_value = MagicMock(status_code=200)
+
+        # Notify with both duplicate jobs
+        notify_users([job1, job2])
+
+        # Should only send 1 notification payload containing 1 job
+        assert mock_post.call_count == 1
+        payload = mock_post.call_args[1]["json"]
+        assert "1 new job(s) found!" in payload["text"]
+
+
+

@@ -10,10 +10,12 @@ if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
 from scrapers import SCRAPERS
-from scrapers.base_scraper import classify_country, parse_job_date
+from scrapers.base_scraper import classify_country, parse_job_date, generate_dedup_keys
 
 def main():
     all_jobs = []
+    seen_keys = set()
+    now_iso = datetime.now(timezone.utc).isoformat()
     
     # 1. Fetch live jobs from scrapers
     for fetch_fn, label in SCRAPERS:
@@ -28,10 +30,20 @@ def main():
                 url = item[4]
                 raw_date = item[5] if len(item) > 5 else None
 
+                c = classify_country(loc)
+
+                # Deduplication check across scrapers
+                dedup_keys = generate_dedup_keys(company, title, c, url)
+                if uid in seen_keys or any(k in seen_keys for k in dedup_keys):
+                    continue
+
+                seen_keys.add(uid)
+                for k in dedup_keys:
+                    seen_keys.add(k)
+
                 # Extract date from item or URL/UID if present
                 ts, date_display = parse_job_date(raw_date)
 
-                c = classify_country(loc)
                 all_jobs.append({
                     "id": uid,
                     "source": label,
@@ -40,6 +52,8 @@ def main():
                     "location": loc,
                     "country": c,
                     "url": url,
+                    "scrapedAt": now_iso,
+                    "createdAt": now_iso,
                     "postedTimestamp": ts,
                     "postedDateStr": date_display,
                 })
@@ -55,7 +69,7 @@ def main():
         os.makedirs(os.path.dirname(cache_path), exist_ok=True)
         with open(cache_path, "w") as f:
             json.dump(all_jobs, f)
-        sys.stderr.write(f"Updated {cache_path} with {len(all_jobs)} jobs sorted by date.\n")
+        sys.stderr.write(f"Updated {cache_path} with {len(all_jobs)} deduplicated jobs sorted by date.\n")
     except Exception as e:
         sys.stderr.write(f"Failed to write cache: {e}\n")
 

@@ -293,3 +293,106 @@ def parse_job_date(date_val, current_year=2026):
     return 0, s
 
 
+# --- Deduplication Helpers -------------------------------------------------
+
+def normalize_company(company: str) -> str:
+    """Canonical normalization for company names to prevent duplicates with differing corporate suffixes or casing."""
+    if not company:
+        return ""
+    c = re.sub(r"<[^>]+>", "", company).lower()
+    c = re.sub(r"[\(\[\{].*?[\)\]\}]", "", c)
+    # Remove common corporate suffixes and noise words
+    suffix_pattern = (
+        r"\b(inc|llc|ltd|corp|corporation|co|technologies|technology|"
+        r"labs|group|platforms|solutions|interactive|software|systems|enterprises)\b\.?"
+    )
+    c = re.sub(suffix_pattern, " ", c)
+    c = re.sub(r"[^a-z0-9]+", " ", c).strip()
+    return re.sub(r"\s+", " ", c)
+
+
+def normalize_title(title: str) -> str:
+    """Canonical normalization for job titles to recognize identical roles across different phrasing."""
+    if not title:
+        return ""
+    t = re.sub(r"<[^>]+>", "", title).lower()
+    t = re.sub(r"[\(\[\{].*?[\)\]\}]", "", t)
+
+    # Standardize abbreviations
+    t = re.sub(r"\bswe\b", "software engineer", t)
+    t = re.sub(r"\bml\b", "machine learning", t)
+    t = re.sub(r"\bai\b", "artificial intelligence", t)
+
+    # Stem / standardize role keywords
+    t = re.sub(r"\b(engineering|developer|developers|dev)\b", "engineer", t)
+    t = re.sub(r"\b(scientists|science)\b", "scientist", t)
+    t = re.sub(r"\b(analysts|analytics)\b", "analyst", t)
+
+    # Strip seasonality, years, internship qualifiers, locations, and noise words
+    noise_patterns = [
+        r"\bsummer\b", r"\bfall\b", r"\bwinter\b", r"\bspring\b",
+        r"\b202[0-9]\b", r"\b203[0-9]\b",
+        r"\binternship\b", r"\bintern\b", r"\bco-?op\b", r"\bcoop\b",
+        r"\bhybrid\b", r"\bremote\b", r"\bin-?person\b", r"\bin-?office\b", r"\bonsite\b",
+        r"\bnew grad\b", r"\bentry level\b", r"\bearly career\b",
+        r"\busa?\b", r"\bcanada\b", r"\bstudent\b", r"\bundergrad(uate)?\b",
+        r"\bposition\b", r"\brole\b", r"\bjob\b",
+    ]
+    for p in noise_patterns:
+        t = re.sub(p, " ", t)
+
+    t = re.sub(r"[^a-z0-9]+", " ", t).strip()
+    return re.sub(r"\s+", " ", t)
+
+
+def normalize_url(url: str) -> str:
+    """Canonical normalization of application URLs, removing tracking params and protocol differences."""
+    if not url or url == "#":
+        return ""
+    from urllib.parse import urlparse, parse_qs, urlencode
+    try:
+        parsed = urlparse(url)
+        netloc = parsed.netloc.lower()
+        if netloc.startswith("www."):
+            netloc = netloc[4:]
+        path = parsed.path.rstrip("/")
+        # Filter tracking query parameters
+        query_params = parse_qs(parsed.query)
+        cleaned_params = {
+            k: v for k, v in query_params.items()
+            if not k.lower().startswith("utm_") and k.lower() not in [
+                "gh_src", "ref", "source", "lever-source", "mode", "sid", "jid"
+            ]
+        }
+        query_str = urlencode(cleaned_params, doseq=True)
+        return f"{netloc}{path}" + (f"?{query_str}" if query_str else "")
+    except Exception:
+        return url.strip().lower()
+
+
+def generate_dedup_keys(company: str, title: str, country: str = "", url: str = "") -> list[str]:
+    """
+    Generates a prioritized list of deduplication keys for a job posting.
+    Any match across these keys indicates the job is identical.
+    """
+    keys = []
+    norm_comp = normalize_company(company)
+    norm_tit = normalize_title(title)
+    norm_c = (country or "").lower().strip()
+    norm_u = normalize_url(url)
+
+    # 1. URL key (if direct link is available)
+    if norm_u:
+        keys.append(f"url:{norm_u}")
+
+    # 2. Company + Title + Country key
+    if norm_comp and norm_tit:
+        if norm_c and norm_c != "other":
+            keys.append(f"role:{norm_comp}:{norm_tit}:{norm_c}")
+        # 3. Company + Title key (cross-country / general)
+        keys.append(f"role:{norm_comp}:{norm_tit}")
+
+    return keys
+
+
+

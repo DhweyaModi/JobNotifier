@@ -8,13 +8,14 @@ import { FilterBar } from "@/components/FilterBar";
 import { JobCard } from "@/components/JobCard";
 import { ApplicationTracker } from "@/components/ApplicationTracker";
 import { WebhookSettingsModal } from "@/components/WebhookSettingsModal";
-import { Loader2, AlertCircle, Briefcase, RefreshCw } from "lucide-react";
+import { Loader2, AlertCircle, Briefcase, RefreshCw, ArrowUp } from "lucide-react";
 
 export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"feed" | "tracker" | "settings">("feed");
+  const [showScrollTop, setShowScrollTop] = useState<boolean>(false);
 
   // LocalStorage state for bookmarks & application statuses
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
@@ -43,6 +44,27 @@ export default function Home() {
       console.warn("Could not access localStorage:", e);
     }
   }, []);
+
+  // Window scroll listener for Scroll to Top button
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 350) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
 
   // Save bookmarks & statuses to localStorage on update
   const handleToggleBookmark = (jobId: string) => {
@@ -202,7 +224,12 @@ export default function Home() {
         {activeTab === "feed" && (
           <>
             {/* Stats Dashboard Banner */}
-            <StatsBanner jobs={jobs} trackedCount={trackedJobsCount} />
+            <StatsBanner
+              jobs={jobs}
+              trackedCount={trackedJobsCount}
+              selectedCountry={filters.country}
+              onSelectCountry={(c) => setFilters((prev) => ({ ...prev, country: c }))}
+            />
 
             {/* Filter Bar */}
             <FilterBar
@@ -268,6 +295,9 @@ export default function Home() {
                       onStatusChange={handleStatusChange}
                       isBookmarked={!!bookmarks[job.id]}
                       onToggleBookmark={handleToggleBookmark}
+                      onSelectCountry={(c) =>
+                        setFilters((prev) => ({ ...prev, country: c }))
+                      }
                     />
                   ))}
                 </div>
@@ -299,6 +329,17 @@ export default function Home() {
       <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
         <p>JobNotifier Dashboard • Active Scrapers & Strict Country Filtering Enabled</p>
       </footer>
+
+      {/* Floating Scroll to Top Button */}
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          title="Scroll to top"
+          className="fixed bottom-6 right-6 z-50 p-3.5 rounded-2xl bg-indigo-600/90 hover:bg-indigo-500 text-white shadow-xl shadow-indigo-600/40 border border-indigo-400/30 backdrop-blur-md transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 active:scale-95 flex items-center justify-center group cursor-pointer"
+        >
+          <ArrowUp className="w-5 h-5 group-hover:-translate-y-0.5 transition-transform duration-200" />
+        </button>
+      )}
     </div>
   );
 }

@@ -171,7 +171,12 @@ export default function Home() {
         } else if (filters.sortBy === "title") {
           return a.title.localeCompare(b.title);
         }
-        // Default: Newest first (highest timestamp)
+        // Default: Newest first (highest scraped timestamp or posted date)
+        const timeB = (b.scrapedAt || b.createdAt) ? new Date(b.scrapedAt || b.createdAt || "").getTime() : ((b.postedTimestamp || 0) * 1000);
+        const timeA = (a.scrapedAt || a.createdAt) ? new Date(a.scrapedAt || a.createdAt || "").getTime() : ((a.postedTimestamp || 0) * 1000);
+        if (!isNaN(timeB) && !isNaN(timeA) && timeB !== timeA) {
+          return timeB - timeA;
+        }
         return (b.postedTimestamp || 0) - (a.postedTimestamp || 0);
       });
   }, [jobs, filters]);

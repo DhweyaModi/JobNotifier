@@ -1,8 +1,10 @@
 import os
 import json
+from datetime import datetime, timezone
 from supabase import create_client, Client
 from postgrest.exceptions import APIError
 from dotenv import load_dotenv
+from scrapers.base_scraper import generate_dedup_keys
 
 load_dotenv()
 
@@ -42,19 +44,27 @@ def _save_local_seen_jobs(seen_jobs: set):
 
 def upsert_job(uid: str, source: str, title: str, company: str, location: str, country: str, url: str, posted_timestamp: int = 0, posted_date_str: str = "") -> bool:
     """
-    Inserts a job into Supabase and local seen_jobs.json fallback.
-    Returns True if it is a new job (successfully inserted), False if already seen.
+    Inserts a job into Supabase and local seen_jobs.json fallback with multi-key deduplication.
+    Returns True if it is a new unique job, False if already seen across any scraper.
     """
     global supabase
     local_seen = _load_local_seen_jobs()
+
+    # 1. Multi-key deduplication check
+    dedup_keys = generate_dedup_keys(company, title, country, url)
     if uid in local_seen:
         return False
+    for k in dedup_keys:
+        if k in local_seen:
+            return False
 
     is_new = False
+    now_iso = datetime.now(timezone.utc).isoformat()
 
+    # 2. Insert into Supabase if available
     if supabase:
         try:
-            response = supabase.table("jobs").insert({
+            payload = {
                 "external_uid": uid,
                 "source": source,
                 "title": title,
@@ -62,26 +72,53 @@ def upsert_job(uid: str, source: str, title: str, company: str, location: str, c
                 "location": location,
                 "country": country,
                 "url": url,
+                "first_seen_at": now_iso,
                 "is_active": True
-            }).execute()
+            }
+            if posted_timestamp > 0:
+                try:
+                    payload["posted_at"] = datetime.fromtimestamp(posted_timestamp, tz=timezone.utc).isoformat()
+                except Exception:
+                    pass
+
+            response = supabase.table("jobs").insert(payload).execute()
             
             if response.data and len(response.data) > 0:
                 is_new = True
         except APIError as e:
-            if e.code == "23505": # Duplicate key
+            if e.code == "23505":  # Duplicate key in database
                 is_new = False
             else:
                 is_new = True
-        except Exception:
-            is_new = True
+        except Exception as exc:
+            # If table doesn't have first_seen_at or other error, fallback insert without optional fields
+            try:
+                response = supabase.table("jobs").insert({
+                    "external_uid": uid,
+                    "source": source,
+                    "title": title,
+                    "company": company,
+                    "location": location,
+                    "country": country,
+                    "url": url,
+                    "is_active": True
+                }).execute()
+                if response.data and len(response.data) > 0:
+                    is_new = True
+            except Exception:
+                is_new = True
     else:
         is_new = True
 
+    # 3. If new, register all dedup keys in seen_jobs.json
     if is_new:
         local_seen.add(uid)
+        for k in dedup_keys:
+            local_seen.add(k)
         _save_local_seen_jobs(local_seen)
 
     return is_new
+
 
 
 def create_user_with_filters(email: str, webhook_url: str, platform: str, keywords: list, countries: list, roles: list, min_grad_year: int = None):

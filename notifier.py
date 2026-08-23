@@ -1,7 +1,7 @@
 import sys
 import requests
 import db
-from scrapers.base_scraper import classify_country
+from scrapers.base_scraper import classify_country, generate_dedup_keys
 
 BATCH_SIZE = 15
 
@@ -66,6 +66,20 @@ def notify_users(new_jobs: list) -> None:
     if not new_jobs:
         print("No new jobs to notify.", flush=True)
         return
+
+    # Deduplicate input new_jobs list
+    unique_new_jobs = []
+    seen_keys = set()
+    for job in new_jobs:
+        label, title, company, location, url = job[:5]
+        keys = generate_dedup_keys(company, title, location, url)
+        if any(k in seen_keys for k in keys):
+            continue
+        for k in keys:
+            seen_keys.add(k)
+        unique_new_jobs.append(job)
+
+    new_jobs = unique_new_jobs
 
     users = db.get_active_users()
     if not users:

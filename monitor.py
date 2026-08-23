@@ -14,6 +14,8 @@ def main():
 
     new_jobs = []
 
+    seen_in_this_run = set()
+
     # 2. Iterate through all the scrapers
     for fetch_fn, label in SCRAPERS:
         try:
@@ -29,14 +31,27 @@ def main():
         for item in jobs:
             uid, title, company, location, url = item[:5]
             raw_date = item[5] if len(item) > 5 else None
-            from scrapers.base_scraper import classify_country, parse_job_date
+            from scrapers.base_scraper import classify_country, parse_job_date, generate_dedup_keys
             country = classify_country(location)
             ts, date_str = parse_job_date(raw_date)
+
+            # Intra-run deduplication check
+            dedup_keys = generate_dedup_keys(company, title, country, url)
+            if uid in seen_in_this_run or any(k in seen_in_this_run for k in dedup_keys):
+                continue
 
             # Try to insert/upsert job into database
             is_new = db.upsert_job(uid, label, title, company, location, country, url, ts, date_str)
             if not is_new:
+                # Mark seen so subsequent scrapers in same run don't query again
+                seen_in_this_run.add(uid)
+                for k in dedup_keys:
+                    seen_in_this_run.add(k)
                 continue
+
+            seen_in_this_run.add(uid)
+            for k in dedup_keys:
+                seen_in_this_run.add(k)
 
             new_count += 1
             new_jobs.append((label, title, company, location, url))

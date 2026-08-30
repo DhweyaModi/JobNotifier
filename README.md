@@ -48,15 +48,37 @@ SLACK_WEBHOOK_CANADA="https://hooks.slack.com/services/..."
 
 ## Running & Testing
 
-### Run Scraper Pipeline
+### 1. Scraper & Backend Pipeline
 To scrape job boards, upsert matches, and notify configured users:
 ```bash
 python monitor.py
 ```
 *(When run locally, this will automatically detect environment webhooks and seed/update the admin users in the database).*
 
-### Run Tests
-To run unit tests and verify the parser functions against mock fixtures:
+### 2. Backend Unit & Parser Tests (Pytest)
+To run backend unit tests and verify scraper parsing against mock fixtures:
 ```bash
 PYTHONPATH=. pytest
+```
+
+### 3. Frontend & Logic Tests (Node Test Runner)
+To test title normalization, deduplication, country isolation (Canada vs USA), and Kanban pipeline logic:
+```bash
+cd web
+npm test
+```
+
+### 4. Database & Supabase Health Check
+To verify live Supabase credentials and database table accessibility (`jobs`, `users`, `applications`):
+```bash
+cd web
+npm run health
+```
+
+### 5. Frontend Development & Build
+To run the local Next.js dashboard or test the production build:
+```bash
+cd web
+npm run dev     # Start local development server (http://localhost:3000)
+npm run build   # Test production compilation for Vercel
 ```

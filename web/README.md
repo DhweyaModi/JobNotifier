@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# JobNotifier Web Dashboard
 
-## Getting Started
+A modern Next.js 16 (React 19, Tailwind CSS) web application for JobNotifier featuring live tech & AI internship search, country filtering (Canada, USA, International), Kanban application lifecycle tracking, Supabase Auth user management, and Vercel Web Analytics.
 
-First, run the development server:
+---
 
+## Quick Start
+
+### 1. Install Dependencies
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configure Environment Variables
+Copy `.env.example` to `.env.local`:
+```bash
+cp .env.example .env.local
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Fill in your Supabase credentials:
+```env
+NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3. Start the Development Server
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## Testing & Diagnostics Commands
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 🧪 1. Run Frontend Test Suite
+Runs unit and integration tests for title normalization, company deduplication, tracking URL cleaning, country isolation (Canada vs USA), and Kanban pipeline transitions:
+```bash
+npm test
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 🏥 2. Run Live Supabase Health Check
+Validates your environment variables, tests Supabase connectivity, and checks table read/write access for `jobs`, `users`, and `applications`:
+```bash
+npm run health
+```
 
-## Deploy on Vercel
+### 🏗️ 3. Production Build Test
+Verifies that all TypeScript types, Tailwind styles, and Next.js App Router pages compile cleanly for deployment:
+```bash
+npm run build
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 🛡️ 4. Security Audit
+Checks for dependency vulnerabilities and applies safe non-breaking patches:
+```bash
+npm audit fix
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## Deployment to Vercel
+
+1. Push your changes to GitHub.
+2. In the [Vercel Dashboard](https://vercel.com/new), import your repository and set the **Root Directory** to `web`.
+3. Add the following Environment Variables in Vercel:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+4. Click **Deploy**.
+5. In your Vercel Project dashboard, open the **Analytics** tab and click **Enable Web Analytics** to track live visitor traffic and page views.
+

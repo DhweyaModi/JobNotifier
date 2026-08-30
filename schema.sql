@@ -32,17 +32,21 @@ CREATE TABLE IF NOT EXISTS job_duplicates (
 );
 
 -- 3. Users Table
--- Supports multiple users/subscribers for webhooks
+-- Supports multiple users/subscribers for webhooks and authenticated web dashboard users
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT,
-    webhook_url TEXT NOT NULL,
-    platform TEXT NOT NULL CHECK (platform IN ('slack', 'discord')),
-    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+    name TEXT,
+    avatar_url TEXT,
+    webhook_url TEXT,
+    platform TEXT DEFAULT 'web',
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    last_sign_in_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Index for webhook lookups
 CREATE INDEX IF NOT EXISTS idx_users_platform ON users(platform);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 -- 4. User Filters Table
 -- User-specific criteria for job delivery
@@ -58,8 +62,8 @@ CREATE TABLE IF NOT EXISTS user_filters (
 -- Tracks job application status per user
 CREATE TABLE IF NOT EXISTS applications (
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    job_id BIGINT REFERENCES jobs(id) ON DELETE CASCADE,
-    status TEXT NOT NULL CHECK (status IN ('applied', 'oa', 'interview', 'rejected', 'offer')),
+    job_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('saved', 'applied', 'oa', 'interview', 'interviewing', 'rejected', 'offer')),
     applied_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     PRIMARY KEY (user_id, job_id)

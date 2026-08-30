@@ -8,16 +8,19 @@ import { FilterBar } from "@/components/FilterBar";
 import { JobCard } from "@/components/JobCard";
 import { ApplicationTracker } from "@/components/ApplicationTracker";
 import { WebhookSettingsModal } from "@/components/WebhookSettingsModal";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabase";
 import { Loader2, AlertCircle, Briefcase, RefreshCw, ArrowUp } from "lucide-react";
 
 export default function Home() {
+  const { user } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"feed" | "tracker" | "settings">("feed");
   const [showScrollTop, setShowScrollTop] = useState<boolean>(false);
 
-  // LocalStorage state for bookmarks & application statuses
+  // Local & cloud synced bookmarks & application statuses
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
   const [applicationStatuses, setApplicationStatuses] = useState<Record<string, ApplicationStatus>>({});
 
@@ -45,6 +48,32 @@ export default function Home() {
     }
   }, []);
 
+  // Sync user applications from Supabase when user signs in
+  useEffect(() => {
+    async function loadUserApplications() {
+      if (!supabase || !user) return;
+      try {
+        const { data, error } = await supabase
+          .from("applications")
+          .select("job_id, status")
+          .eq("user_id", user.id);
+
+        if (!error && data && data.length > 0) {
+          const cloudStatuses: Record<string, ApplicationStatus> = {};
+          data.forEach((row: any) => {
+            if (row.job_id && row.status) {
+              cloudStatuses[row.job_id] = row.status.toUpperCase() as ApplicationStatus;
+            }
+          });
+          setApplicationStatuses((prev) => ({ ...prev, ...cloudStatuses }));
+        }
+      } catch (err) {
+        console.warn("Error fetching user applications from Supabase:", err);
+      }
+    }
+    loadUserApplications();
+  }, [user]);
+
   // Window scroll listener for Scroll to Top button
   useEffect(() => {
     const handleScroll = () => {
@@ -66,7 +95,7 @@ export default function Home() {
     });
   };
 
-  // Save bookmarks & statuses to localStorage on update
+  // Save bookmarks & statuses on update
   const handleToggleBookmark = (jobId: string) => {
     setBookmarks((prev) => {
       const updated = { ...prev, [jobId]: !prev[jobId] };
@@ -75,7 +104,7 @@ export default function Home() {
     });
   };
 
-  const handleStatusChange = (jobId: string, status: ApplicationStatus) => {
+  const handleStatusChange = async (jobId: string, status: ApplicationStatus) => {
     setApplicationStatuses((prev) => {
       const updated = { ...prev, [jobId]: status };
       localStorage.setItem("jobnotifier_statuses", JSON.stringify(updated));
@@ -85,6 +114,29 @@ export default function Home() {
     setJobs((prevJobs) =>
       prevJobs.map((j) => (j.id === jobId ? { ...j, applicationStatus: status } : j))
     );
+
+    // Sync to Supabase if logged in
+    if (supabase && user) {
+      try {
+        if (status === "NONE") {
+          await supabase
+            .from("applications")
+            .delete()
+            .match({ user_id: user.id, job_id: jobId });
+        } else {
+          await supabase.from("applications").upsert(
+            {
+              user_id: user.id,
+              job_id: jobId,
+              status: status.toLowerCase(),
+            },
+            { onConflict: "user_id,job_id" }
+          );
+        }
+      } catch (err) {
+        console.warn("Could not sync application to Supabase:", err);
+      }
+    }
   };
 
   // Fetch jobs from API

@@ -22,10 +22,10 @@ export interface Job {
 
 export interface FilterState {
   search: string;
-  country: string;
-  source: string;
-  role: string;
-  status: string;
+  countries: string[]; // multi-select (e.g. ["canada", "usa"])
+  roles: string[];     // multi-select (e.g. ["Software", "AI / ML"])
+  statuses: string[];  // multi-select (e.g. ["APPLIED", "SAVED"])
+  workType: "all" | "remote" | "hybrid" | "onsite";
   sortBy: "newest" | "company" | "title";
 }
 

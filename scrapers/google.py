@@ -1,87 +1,138 @@
+import re
 import sys
+import json
+import html as html_lib
 import requests
 from scrapers.base_scraper import role_matches, is_internship
 
-BASE_URL = "https://careers.google.com/api/v3/search/"
+URLS = [
+    "https://www.google.com/about/careers/applications/jobs/results?target_level=INTERN_AND_APPRENTICE",
+]
 
 HEADERS = {
     "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
+        "Chrome/131.0.0.0 Safari/537.36"
     ),
-    "Accept": "application/json",
-    "Referer": "https://careers.google.com/jobs/results/",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.google.com/",
+    "sec-fetch-dest": "document",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-site": "same-origin",
 }
+
+
+def _extract_from_callbacks(html_text):
+    """
+    Parses Google's AF_initDataCallback payload embedded in server-rendered script tags.
+    Extracts all job listings, IDs, titles, and locations.
+    """
+    jobs = []
+    
+    # 1. Regex search for job records: ["job_id", "Title", ...] or ["jobs/results/job_id", "Title"]
+    # Google IDs are 15-20 digit numeric strings like "123456789012345678" or "jobs/results/..."
+    id_title_pattern = re.findall(
+        r'\["(\d{14,25})",\s*"([^"]+)"',
+        html_text
+    )
+    for job_id, title in id_title_pattern:
+        clean_title = html_lib.unescape(title).strip()
+        if len(clean_title) > 3 and not clean_title.isdigit():
+            jobs.append({
+                "id": job_id,
+                "title": clean_title,
+                "location": "Multiple Locations",
+                "url": f"https://www.google.com/about/careers/applications/jobs/results/{job_id}",
+            })
+
+    # 2. Extract full JSON arrays from data: [...] or data:function(){return [...]}
+    data_blobs = re.findall(r'data:\s*(?:function\(\)\s*{\s*return\s*)?(\[.*?\])\s*(?:;\s*})?\s*,\s*sideChannel', html_text, re.DOTALL)
+    for raw_json in data_blobs:
+        try:
+            parsed = json.loads(raw_json)
+            
+            def walk(item):
+                if isinstance(item, list):
+                    # Check if this item is a job entry
+                    # Google format: [job_id, title, company, [locations], ...]
+                    if len(item) >= 2 and isinstance(item[0], str) and re.match(r"^\d{14,25}$", item[0]) and isinstance(item[1], str):
+                        j_id = item[0]
+                        j_title = html_lib.unescape(item[1]).strip()
+                        
+                        # Find locations in sub-arrays
+                        locs = []
+                        for elem in item:
+                            if isinstance(elem, list):
+                                for sub in elem:
+                                    if isinstance(sub, str) and ("," in sub or any(c in sub.lower() for c in ["canada", "usa", "united states", "waterloo", "toronto", "seattle", "ca", "ny", "wa"])):
+                                        locs.append(sub)
+                                    elif isinstance(sub, list):
+                                        for ssub in sub:
+                                            if isinstance(ssub, str) and ("," in ssub or "united states" in ssub.lower() or "canada" in ssub.lower()):
+                                                locs.append(ssub)
+
+                        loc_str = ", ".join(list(set(locs))) if locs else "Multiple Locations"
+                        jobs.append({
+                            "id": j_id,
+                            "title": j_title,
+                            "location": loc_str,
+                            "url": f"https://www.google.com/about/careers/applications/jobs/results/{j_id}",
+                        })
+                    for sub in item:
+                        walk(sub)
+                elif isinstance(item, dict):
+                    for v in item.values():
+                        walk(v)
+
+            walk(parsed)
+        except Exception:
+            pass
+
+    return jobs
 
 
 def fetch_google_jobs():
     """
-    Fetches student and software engineering internship postings from Google Careers API (all locations).
+    Fetches student and software engineering internship postings from Google Careers.
     Returns a list of (unique_id, title, company, location, url, date_posted) tuples.
     """
     results = []
     seen_ids = set()
 
-    params = {
-        "q": "software engineer intern",
-        "degree": "BACHELORS",
-        "employment_type": "INTERN",
-        "page_size": 50,
-        "sort_by": "relevance",
-    }
-
-    try:
-        resp = requests.get(BASE_URL, params=params, headers=HEADERS, timeout=25)
-        if resp.status_code != 200:
-            print(f"Warning: Google Careers API returned HTTP {resp.status_code}", file=sys.stderr)
-            return results
-
-        data = resp.json()
-        jobs = data.get("jobs", [])
-
-        for job in jobs:
-            job_id = job.get("id")
-            if not job_id or job_id in seen_ids:
+    for url in URLS:
+        try:
+            resp = requests.get(url, headers=HEADERS, timeout=25)
+            if resp.status_code != 200:
+                print(f"Warning: Google Careers page returned HTTP {resp.status_code}", file=sys.stderr)
                 continue
 
-            title = job.get("title", "").strip()
-            company = "Google"
+            html_text = resp.text
+            raw_jobs = _extract_from_callbacks(html_text)
 
-            # Parse locations list
-            raw_locations = job.get("locations", [])
-            if isinstance(raw_locations, list):
-                loc_strings = []
-                for item in raw_locations:
-                    if isinstance(item, str):
-                        loc_strings.append(item)
-                    elif isinstance(item, dict):
-                        loc_str = item.get("display_name") or item.get("city") or ""
-                        if loc_str:
-                            loc_strings.append(loc_str)
-                location = ", ".join(loc_strings) if loc_strings else "Multiple Locations"
-            elif isinstance(raw_locations, str):
-                location = raw_locations
-            else:
-                location = "Multiple Locations"
+            for item in raw_jobs:
+                job_id = str(item.get("id") or "").strip()
+                title = str(item.get("title") or "").strip()
 
-            # Extract apply url
-            apply_url = (
-                job.get("apply_url")
-                or f"https://careers.google.com/jobs/results/{job_id}/"
-            )
+                if not job_id or not title or job_id in seen_ids:
+                    continue
 
-            uid = f"google:{job_id}"
+                # Filters: verify role match or student/intern keywords
+                title_lower = title.lower()
+                is_student_role = "student researcher" in title_lower or "step" in title_lower or "fellow" in title_lower or "apprentice" in title_lower
+                if not (role_matches(title) or is_internship(title) or is_student_role):
+                    continue
 
-            # Filters: verify role matches and internship keyword
-            if not role_matches(title) and not is_internship(title):
-                continue
+                company = "Google"
+                loc = item.get("location") or "Multiple Locations"
+                apply_url = item.get("url") or f"https://www.google.com/about/careers/applications/jobs/results/{job_id}"
+                uid = f"google:{job_id}"
 
-            created_date = job.get("created") or job.get("modified") or ""
-            seen_ids.add(job_id)
-            results.append((uid, title, company, location, apply_url, created_date))
+                seen_ids.add(job_id)
+                results.append((uid, title, company, loc, apply_url, ""))
 
-    except Exception as e:
-        print(f"Warning: Error fetching Google jobs: {e}", file=sys.stderr)
+        except Exception as e:
+            print(f"Warning: Error fetching Google jobs from {url}: {e}", file=sys.stderr)
 
     return results

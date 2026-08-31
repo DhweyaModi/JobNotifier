@@ -2,8 +2,8 @@ name: Job Monitor
 
 on:
   schedule:
-    # Every 15 minutes
-    - cron: "*/15 * * * *"
+    # Runs every 13 minutes on off-peak minute intervals
+    - cron: "3,16,29,42,55 * * * *"
   workflow_dispatch: {}
 
 permissions:

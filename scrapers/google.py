@@ -1,92 +1,166 @@
+import re
 import sys
+import json
 import requests
 from scrapers.base_scraper import role_matches, is_internship
 
-BASE_URL = "https://careers.google.com/api/v3/search/"
-ALT_URL = "https://www.google.com/about/careers/applications/api/jobs/results/"
+SEARCH_URL = (
+    "https://www.google.com/about/careers/applications/jobs/results"
+    "?target_level=INTERN_AND_APPRENTICE"
+)
 
 HEADERS = {
     "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
+        "Chrome/151.0.0.0 Safari/537.36"
     ),
-    "Accept": "application/json",
-    "Referer": "https://www.google.com/about/careers/applications/jobs/results",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.google.com/",
+    "sec-fetch-dest": "document",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-site": "same-origin",
 }
+
+
+def _extract_jobs_from_json_blob(blob_data):
+    """Recursively traverses parsed JSON blob from Google script tags to find job objects."""
+    jobs = []
+    
+    def traverse(item):
+        if isinstance(item, dict):
+            # Check if this dict represents a Google job object
+            title = item.get("title") or item.get("job_title")
+            job_id = item.get("id") or item.get("job_id")
+            if title and (job_id or item.get("apply_url")):
+                jobs.append(item)
+            for v in item.values():
+                traverse(v)
+        elif isinstance(item, list):
+            # Check array structure format: ["job_id", "title", ...]
+            if len(item) >= 3 and isinstance(item[0], str) and re.match(r"^\d{6,}$", str(item[0])) and isinstance(item[1], str):
+                jobs.append({
+                    "id": item[0],
+                    "title": item[1],
+                    "locations": item[2] if isinstance(item[2], (list, str)) else [],
+                })
+            for sub in item:
+                traverse(sub)
+
+    traverse(blob_data)
+    return jobs
 
 
 def fetch_google_jobs():
     """
-    Fetches student and engineering internship postings from Google Careers API using target_level=INTERN_AND_APPRENTICE.
+    Fetches the Google Careers server-rendered page and extracts embedded job listings.
     Returns a list of (unique_id, title, company, location, url, date_posted) tuples.
     """
     results = []
     seen_ids = set()
 
-    # Query with Google's official internship & apprentice target_level facet
-    param_sets = [
-        {"target_level": "INTERN_AND_APPRENTICE", "page_size": 100, "sort_by": "relevance"},
-        {"q": "intern", "page_size": 100, "sort_by": "relevance"},
-    ]
+    try:
+        resp = requests.get(SEARCH_URL, headers=HEADERS, timeout=25)
+        if resp.status_code != 200:
+            print(f"Warning: Google Careers page returned HTTP {resp.status_code}", file=sys.stderr)
+            return results
 
-    for params in param_sets:
-        try:
-            resp = requests.get(BASE_URL, params=params, headers=HEADERS, timeout=20)
-            if resp.status_code != 200:
-                resp = requests.get(ALT_URL, params=params, headers=HEADERS, timeout=20)
+        html = resp.text
 
-            if resp.status_code != 200:
-                print(f"Warning: Google Careers API returned HTTP {resp.status_code}", file=sys.stderr)
-                continue
+        # 1. Pattern matching for AF_initDataCallback
+        # Google commonly uses: AF_initDataCallback({key: 'ds:...', data: [...]});
+        callback_matches = re.findall(r"AF_initDataCallback\s*\(\s*({.*?})\s*\)\s*;", html, re.DOTALL)
+        for match in callback_matches:
+            try:
+                # Clean unquoted JS keys if needed
+                cleaned = re.sub(r"([{,])\s*([a-zA-Z0-9_]+)\s*:", r'\1"\2":', match)
+                cleaned = cleaned.replace("'", '"')
+                blob = json.loads(cleaned)
+                raw_jobs = _extract_jobs_from_json_blob(blob)
+                for rj in raw_jobs:
+                    _process_and_add_job(rj, seen_ids, results)
+            except Exception:
+                # Fallback: Extract array inside data: [...]
+                data_match = re.search(r"data:\s*(\[.*?\])\s*,\s*sideChannel", match, re.DOTALL)
+                if data_match:
+                    try:
+                        raw_data = json.loads(data_match.group(1))
+                        raw_jobs = _extract_jobs_from_json_blob(raw_data)
+                        for rj in raw_jobs:
+                            _process_and_add_job(rj, seen_ids, results)
+                    except Exception:
+                        pass
 
-            data = resp.json()
-            jobs = data.get("jobs", [])
+        # 2. Pattern matching for window.APP_INITIALIZATION_STATE or __INITIAL_STATE__
+        state_matches = re.findall(r"(?:window\.APP_INITIALIZATION_STATE|window\.__INITIAL_STATE__)\s*=\s*([\[{].*?[\]}]);", html, re.DOTALL)
+        for match in state_matches:
+            try:
+                blob = json.loads(match)
+                raw_jobs = _extract_jobs_from_json_blob(blob)
+                for rj in raw_jobs:
+                    _process_and_add_job(rj, seen_ids, results)
+            except Exception:
+                pass
 
-            for job in jobs:
-                job_id = job.get("id")
-                if not job_id or job_id in seen_ids:
-                    continue
+        # 3. HTML Card / Link Regex Fallback
+        # Look for links to /about/careers/applications/jobs/results/<job_id>
+        job_link_matches = re.findall(
+            r'href=["\']/about/careers/applications/jobs/results/(\d+)[^"\']*["\'][^>]*>(.*?)</a>',
+            html,
+            re.DOTALL | re.IGNORECASE
+        )
+        for job_id, inner_text in job_link_matches:
+            clean_title = re.sub(r"<[^>]+>", " ", inner_text).strip()
+            clean_title = re.sub(r"\s+", " ", clean_title)
+            if clean_title and len(clean_title) > 3 and job_id not in seen_ids:
+                rj = {
+                    "id": job_id,
+                    "title": clean_title,
+                    "locations": ["Multiple Locations"],
+                    "apply_url": f"https://www.google.com/about/careers/applications/jobs/results/{job_id}",
+                }
+                _process_and_add_job(rj, seen_ids, results)
 
-                title = job.get("title", "").strip()
-                company = "Google"
-
-                # Parse locations list
-                raw_locations = job.get("locations", [])
-                if isinstance(raw_locations, list):
-                    loc_strings = []
-                    for item in raw_locations:
-                        if isinstance(item, str):
-                            loc_strings.append(item)
-                        elif isinstance(item, dict):
-                            loc_str = item.get("display_name") or item.get("city") or ""
-                            if loc_str:
-                                loc_strings.append(loc_str)
-                    location = ", ".join(loc_strings) if loc_strings else "Multiple Locations"
-                elif isinstance(raw_locations, str):
-                    location = raw_locations
-                else:
-                    location = "Multiple Locations"
-
-                # Extract apply url
-                apply_url = (
-                    job.get("apply_url")
-                    or f"https://www.google.com/about/careers/applications/jobs/results/{job_id}"
-                )
-
-                uid = f"google:{job_id}"
-
-                # Filters: verify tech role or internship keyword
-                title_lower = title.lower()
-                is_student_researcher = "student researcher" in title_lower or "step" in title_lower
-                if not (role_matches(title) or is_internship(title) or is_student_researcher):
-                    continue
-
-                created_date = job.get("created") or job.get("modified") or ""
-                seen_ids.add(job_id)
-                results.append((uid, title, company, location, apply_url, created_date))
-
-        except Exception as e:
-            print(f"Warning: Error fetching Google jobs: {e}", file=sys.stderr)
+    except Exception as e:
+        print(f"Warning: Error in Google HTML scraper: {e}", file=sys.stderr)
 
     return results
+
+
+def _process_and_add_job(job_dict, seen_ids, results):
+    job_id = str(job_dict.get("id") or "")
+    title = str(job_dict.get("title") or "").strip()
+
+    if not job_id or not title or job_id in seen_ids:
+        return
+
+    # Check relevance
+    title_lower = title.lower()
+    is_student_researcher = "student researcher" in title_lower or "step" in title_lower
+    if not (role_matches(title) or is_internship(title) or is_student_researcher):
+        return
+
+    company = "Google"
+
+    # Locations
+    locs = job_dict.get("locations", [])
+    if isinstance(locs, list):
+        loc_str = ", ".join([str(l) for l in locs if str(l).strip()])
+    elif isinstance(locs, str):
+        loc_str = locs
+    else:
+        loc_str = "Multiple Locations"
+
+    if not loc_str:
+        loc_str = "Multiple Locations"
+
+    # Apply URL
+    url = (
+        job_dict.get("apply_url")
+        or f"https://www.google.com/about/careers/applications/jobs/results/{job_id}"
+    )
+
+    uid = f"google:{job_id}"
+    seen_ids.add(job_id)
+    results.append((uid, title, company, loc_str, url, ""))

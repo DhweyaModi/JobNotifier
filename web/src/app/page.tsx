@@ -27,7 +27,6 @@ export default function Home() {
   const [filters, setFilters] = useState<FilterState>({
     search: "",
     countries: [],
-    sources: [],
     roles: [],
     statuses: [],
     workType: "all",

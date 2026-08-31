@@ -26,16 +26,17 @@ export default function Home() {
 
   const [filters, setFilters] = useState<FilterState>({
     search: "",
-    country: "all",
-    source: "all",
-    role: "",
-    status: "all",
+    countries: [],
+    sources: [],
+    roles: [],
+    statuses: [],
+    workType: "all",
     sortBy: "newest",
   });
 
   const [visibleCount, setVisibleCount] = useState<number>(48);
 
-  // Load saved bookmarks & statuses from localStorage on mount
+  // Load saved bookmarks, application statuses & filter preferences on mount
   useEffect(() => {
     try {
       const savedBookmarks = localStorage.getItem("jobnotifier_bookmarks");
@@ -43,35 +44,64 @@ export default function Home() {
 
       const savedStatuses = localStorage.getItem("jobnotifier_statuses");
       if (savedStatuses) setApplicationStatuses(JSON.parse(savedStatuses));
+
+      const savedFilters = localStorage.getItem("jobnotifier_saved_filters");
+      if (savedFilters) {
+        const parsed = JSON.parse(savedFilters);
+        setFilters((prev) => ({
+          ...prev,
+          countries: parsed.countries || [],
+          roles: parsed.roles || [],
+          workType: parsed.workType || "all",
+          search: parsed.search || "",
+        }));
+      }
     } catch (e) {
       console.warn("Could not access localStorage:", e);
     }
   }, []);
 
-  // Sync user applications from Supabase when user signs in
+  // Sync user applications & saved filter preferences from Supabase when user signs in
   useEffect(() => {
-    async function loadUserApplications() {
+    async function loadUserData() {
       if (!supabase || !user) return;
       try {
-        const { data, error } = await supabase
+        // 1. Load application tracker statuses
+        const { data: appData } = await supabase
           .from("applications")
           .select("job_id, status")
           .eq("user_id", user.id);
 
-        if (!error && data && data.length > 0) {
+        if (appData && appData.length > 0) {
           const cloudStatuses: Record<string, ApplicationStatus> = {};
-          data.forEach((row: any) => {
+          appData.forEach((row: any) => {
             if (row.job_id && row.status) {
               cloudStatuses[row.job_id] = row.status.toUpperCase() as ApplicationStatus;
             }
           });
           setApplicationStatuses((prev) => ({ ...prev, ...cloudStatuses }));
         }
+
+        // 2. Load saved user filter preferences
+        const { data: filterData } = await supabase
+          .from("user_filters")
+          .select("countries, roles, keywords")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (filterData) {
+          setFilters((prev) => ({
+            ...prev,
+            countries: filterData.countries || prev.countries,
+            roles: filterData.roles || prev.roles,
+            search: (filterData.keywords && filterData.keywords[0]) || prev.search,
+          }));
+        }
       } catch (err) {
-        console.warn("Error fetching user applications from Supabase:", err);
+        console.warn("Error fetching user data from Supabase:", err);
       }
     }
-    loadUserApplications();
+    loadUserData();
   }, [user]);
 
   // Window scroll listener for Scroll to Top button
@@ -191,47 +221,58 @@ export default function Home() {
     return Array.from(set).sort();
   }, [jobs]);
 
-  // Filtering & Sorting Logic
+  // Multi-Filter & Sorting Logic
   const filteredJobs = useMemo(() => {
     return jobs
       .filter((job) => {
-        // Country filter
-        if (filters.country !== "all" && job.country !== filters.country) {
-          return false;
-        }
-
-        // Source filter
-        if (filters.source !== "all" && job.source !== filters.source) {
-          return false;
-        }
-
-        // Role filter
-        if (filters.role) {
-          const roleLower = filters.role.toLowerCase();
-          const titleLower = job.title.toLowerCase();
-          if (roleLower === "software" && !titleLower.includes("software") && !titleLower.includes("swe")) {
-            return false;
-          } else if (roleLower === "ai / ml" && !titleLower.includes("ai") && !titleLower.includes("ml") && !titleLower.includes("machine learning")) {
-            return false;
-          } else if (roleLower === "data science" && !titleLower.includes("data") && !titleLower.includes("analyst")) {
-            return false;
-          } else if (roleLower === "quant" && !titleLower.includes("quant") && !titleLower.includes("trader")) {
-            return false;
-          } else if (roleLower === "backend" && !titleLower.includes("backend")) {
-            return false;
-          } else if (roleLower === "frontend" && !titleLower.includes("frontend") && !titleLower.includes("web")) {
-            return false;
-          } else if (roleLower === "firmware" && !titleLower.includes("firmware") && !titleLower.includes("hardware") && !titleLower.includes("embedded")) {
+        // 1. Multi-country filter
+        if (filters.countries.length > 0) {
+          if (!filters.countries.includes(job.country)) {
             return false;
           }
         }
 
-        // Search query filter
+        // 2. Multi-role filter
+        if (filters.roles.length > 0) {
+          const titleLower = (job.title || "").toLowerCase();
+          const matchesAnyRole = filters.roles.some((r) => {
+            const roleLower = r.toLowerCase();
+            if (roleLower === "software") return titleLower.includes("software") || titleLower.includes("swe") || titleLower.includes("developer");
+            if (roleLower === "ai / ml") return titleLower.includes("ai") || titleLower.includes("ml") || titleLower.includes("machine learning") || titleLower.includes("intelligence");
+            if (roleLower === "data science") return titleLower.includes("data") || titleLower.includes("analyst") || titleLower.includes("analytics");
+            if (roleLower === "quant") return titleLower.includes("quant") || titleLower.includes("trader") || titleLower.includes("trading");
+            if (roleLower === "backend") return titleLower.includes("backend") || titleLower.includes("back-end") || titleLower.includes("server") || titleLower.includes("api");
+            if (roleLower === "frontend") return titleLower.includes("frontend") || titleLower.includes("front-end") || titleLower.includes("web") || titleLower.includes("ui");
+            if (roleLower === "firmware") return titleLower.includes("firmware") || titleLower.includes("hardware") || titleLower.includes("embedded");
+            if (roleLower === "cloud / devops") return titleLower.includes("cloud") || titleLower.includes("devops") || titleLower.includes("sre") || titleLower.includes("infrastructure");
+            if (roleLower === "security") return titleLower.includes("security") || titleLower.includes("cyber") || titleLower.includes("appsec");
+            return titleLower.includes(roleLower);
+          });
+          if (!matchesAnyRole) return false;
+        }
+
+        // 3. Multi-status filter
+        if (filters.statuses.length > 0) {
+          const jobStatus = job.applicationStatus || "NONE";
+          if (!filters.statuses.includes(jobStatus)) {
+            return false;
+          }
+        }
+
+        // 4. Workplace / Work type filter
+        if (filters.workType !== "all") {
+          const combined = `${job.title} ${job.location}`.toLowerCase();
+          if (filters.workType === "remote" && !combined.includes("remote")) return false;
+          if (filters.workType === "hybrid" && !combined.includes("hybrid")) return false;
+          if (filters.workType === "onsite" && (combined.includes("remote") && !combined.includes("hybrid"))) return false;
+        }
+
+        // 5. Search query matching
         if (filters.search) {
-          const query = filters.search.toLowerCase();
-          const matchTitle = job.title.toLowerCase().includes(query);
-          const matchCompany = job.company.toLowerCase().includes(query);
-          const matchLoc = job.location.toLowerCase().includes(query);
+          const query = filters.search.toLowerCase().trim();
+          const matchTitle = (job.title || "").toLowerCase().includes(query);
+          const matchCompany = (job.company || "").toLowerCase().includes(query);
+          const matchLoc = (job.location || "").toLowerCase().includes(query);
           if (!matchTitle && !matchCompany && !matchLoc) {
             return false;
           }
@@ -279,15 +320,25 @@ export default function Home() {
             <StatsBanner
               jobs={jobs}
               trackedCount={trackedJobsCount}
-              selectedCountry={filters.country}
-              onSelectCountry={(c) => setFilters((prev) => ({ ...prev, country: c }))}
+              selectedCountries={filters.countries}
+              onSelectCountry={(c) =>
+                setFilters((prev) => {
+                  if (c === "all") return { ...prev, countries: [] };
+                  const exists = prev.countries.includes(c);
+                  return {
+                    ...prev,
+                    countries: exists
+                      ? prev.countries.filter((x) => x !== c)
+                      : [...prev.countries, c],
+                  };
+                })
+              }
             />
 
             {/* Filter Bar */}
             <FilterBar
               filters={filters}
               setFilters={setFilters}
-              sources={sourcesList}
               totalResults={filteredJobs.length}
             />
 
@@ -318,20 +369,20 @@ export default function Home() {
                 </div>
                 <h3 className="text-base font-bold text-white">No matching jobs found</h3>
                 <p className="text-xs text-slate-400">
-                  Try clearing your search query or selecting a different country filter.
+                  Try clearing your search query or selecting a different country or role filter.
                 </p>
                 <button
                   onClick={() =>
                     setFilters({
                       search: "",
-                      country: "all",
-                      source: "all",
-                      role: "",
-                      status: "all",
+                      countries: [],
+                      roles: [],
+                      statuses: [],
+                      workType: "all",
                       sortBy: "newest",
                     })
                   }
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-semibold transition"
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-semibold transition cursor-pointer"
                 >
                   Reset All Filters
                 </button>
@@ -348,7 +399,12 @@ export default function Home() {
                       isBookmarked={!!bookmarks[job.id]}
                       onToggleBookmark={handleToggleBookmark}
                       onSelectCountry={(c) =>
-                        setFilters((prev) => ({ ...prev, country: c }))
+                        setFilters((prev) => ({
+                          ...prev,
+                          countries: prev.countries.includes(c)
+                            ? prev.countries
+                            : [...prev.countries, c],
+                        }))
                       }
                     />
                   ))}
@@ -359,7 +415,7 @@ export default function Home() {
                   <div className="text-center py-8">
                     <button
                       onClick={() => setVisibleCount((prev) => prev + 48)}
-                      className="px-6 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-indigo-500/40 text-slate-200 text-sm font-semibold transition shadow-lg"
+                      className="px-6 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-indigo-500/40 text-slate-200 text-sm font-semibold transition shadow-lg cursor-pointer"
                     >
                       Load More Listings ({filteredJobs.length - visibleCount} remaining)
                     </button>

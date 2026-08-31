@@ -35,9 +35,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleOAuth = async (provider: "google" | "github") => {
     setLoading(true);
     setMessage(null);
-    const { error } = await signInWithOAuth(provider);
-    if (error) {
-      setMessage({ type: "error", text: error });
+    try {
+      const { error } = await signInWithOAuth(provider);
+      if (error) {
+        if (error.toLowerCase().includes("not enabled") || error.toLowerCase().includes("unsupported provider")) {
+          setMessage({
+            type: "error",
+            text: `${provider === "google" ? "Google" : "GitHub"} OAuth is not enabled in your Supabase dashboard yet. Use Email sign-in below or enable ${provider} in Supabase -> Auth -> Providers.`,
+          });
+        } else {
+          setMessage({ type: "error", text: error });
+        }
+      }
+    } catch (err: any) {
+      setMessage({ type: "error", text: err?.message || "Failed to initiate sign-in." });
+    } finally {
       setLoading(false);
     }
   };
@@ -50,16 +62,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
     setLoading(true);
     setMessage(null);
-    const { error } = await signInWithOtp(email);
-    if (error) {
-      setMessage({ type: "error", text: error });
-    } else {
-      setMessage({
-        type: "success",
-        text: `Check your inbox! We've sent a magic sign-in link to ${email}.`,
-      });
+    try {
+      const { error } = await signInWithOtp(email);
+      if (error) {
+        setMessage({ type: "error", text: error });
+      } else {
+        setMessage({
+          type: "success",
+          text: `Check your inbox! We've sent a magic sign-in link to ${email}.`,
+        });
+      }
+    } catch (err: any) {
+      setMessage({ type: "error", text: err?.message || "Failed to send magic link." });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handlePasswordAuth = async (e: React.FormEvent) => {
@@ -70,25 +87,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
     setLoading(true);
     setMessage(null);
-    if (isSignUp) {
-      const { error } = await signUpWithPassword(email, password);
-      if (error) {
-        setMessage({ type: "error", text: error });
+    try {
+      if (isSignUp) {
+        const { error } = await signUpWithPassword(email, password);
+        if (error) {
+          setMessage({ type: "error", text: error });
+        } else {
+          setMessage({
+            type: "success",
+            text: "Account created! You can now sign in with your email and password.",
+          });
+        }
       } else {
-        setMessage({
-          type: "success",
-          text: "Account created! Check your email to confirm registration or sign in.",
-        });
+        const { error } = await signInWithPassword(email, password);
+        if (error) {
+          setMessage({ type: "error", text: error });
+        } else {
+          if (onClose) onClose();
+        }
       }
-    } else {
-      const { error } = await signInWithPassword(email, password);
-      if (error) {
-        setMessage({ type: "error", text: error });
-      } else {
-        if (onClose) onClose();
-      }
+    } catch (err: any) {
+      setMessage({ type: "error", text: err?.message || "Authentication error." });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -115,6 +137,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             Sign in to track tech & AI internships, customize real-time webhooks, and manage your applications.
           </p>
         </div>
+
+        {/* Missing Config Alert */}
+        {!isConfigured && (
+          <div className="p-3.5 rounded-2xl bg-amber-950/70 border border-amber-800/80 text-amber-300 text-xs mb-5 space-y-1">
+            <p className="font-bold flex items-center gap-1.5">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Supabase Not Connected in Vercel</span>
+            </p>
+            <p className="text-[11px] text-amber-200/80">
+              Add <code className="bg-amber-900/50 px-1 py-0.5 rounded text-amber-100">NEXT_PUBLIC_SUPABASE_URL</code> and <code className="bg-amber-900/50 px-1 py-0.5 rounded text-amber-100">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> in your Vercel Project Settings &rarr; Environment Variables, then Redeploy.
+            </p>
+          </div>
+        )}
 
         {/* Status Message */}
         {message && (

@@ -7,27 +7,28 @@ import { Globe, MapPin, CheckCircle2, Zap } from "lucide-react";
 interface StatsBannerProps {
   jobs: Job[];
   trackedCount: number;
-  selectedCountry?: string;
+  selectedCountries?: string[];
   onSelectCountry?: (country: string) => void;
 }
 
 export const StatsBanner: React.FC<StatsBannerProps> = ({
   jobs,
   trackedCount,
-  selectedCountry = "all",
+  selectedCountries = [],
   onSelectCountry,
 }) => {
   const canadaCount = jobs.filter((j) => j.country === "canada").length;
   const usaCount = jobs.filter((j) => j.country === "usa").length;
   const bothCount = jobs.filter((j) => j.country === "both").length;
 
+  const isAllSelected = selectedCountries.length === 0;
+  const isCanadaSelected = selectedCountries.includes("canada");
+  const isUsaSelected = selectedCountries.includes("usa");
+  const isBothSelected = selectedCountries.includes("both");
+
   const handleCardClick = (country: string) => {
     if (!onSelectCountry) return;
-    if (selectedCountry === country) {
-      onSelectCountry("all"); // Toggle off
-    } else {
-      onSelectCountry(country);
-    }
+    onSelectCountry(country);
   };
 
   return (
@@ -36,7 +37,7 @@ export const StatsBanner: React.FC<StatsBannerProps> = ({
       <button
         onClick={() => handleCardClick("all")}
         className={`glass-card p-4 rounded-2xl relative overflow-hidden group text-left transition-all duration-200 cursor-pointer ${
-          selectedCountry === "all"
+          isAllSelected
             ? "ring-2 ring-indigo-500/80 bg-indigo-950/30 shadow-lg shadow-indigo-950/50"
             : "hover:border-slate-600 hover:-translate-y-0.5"
         }`}
@@ -46,7 +47,7 @@ export const StatsBanner: React.FC<StatsBannerProps> = ({
         </div>
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1 flex items-center justify-between">
           <span>All Jobs</span>
-          {selectedCountry === "all" && (
+          {isAllSelected && (
             <span className="text-[10px] text-indigo-300 bg-indigo-900/60 px-1.5 py-0.5 rounded font-mono">
               Active
             </span>
@@ -68,7 +69,7 @@ export const StatsBanner: React.FC<StatsBannerProps> = ({
       <button
         onClick={() => handleCardClick("canada")}
         className={`glass-card p-4 rounded-2xl relative overflow-hidden group text-left border-l-4 border-l-red-500 transition-all duration-200 cursor-pointer ${
-          selectedCountry === "canada"
+          isCanadaSelected
             ? "ring-2 ring-red-500/90 bg-red-950/40 shadow-lg shadow-red-950/50"
             : "hover:border-slate-600 hover:-translate-y-0.5"
         }`}
@@ -81,7 +82,7 @@ export const StatsBanner: React.FC<StatsBannerProps> = ({
             <span>Canada Channel</span>
             <span>🇨🇦</span>
           </span>
-          {selectedCountry === "canada" ? (
+          {isCanadaSelected ? (
             <span className="text-[10px] font-bold text-red-200 bg-red-800/80 px-1.5 py-0.5 rounded shadow">
               Filtered ✓
             </span>
@@ -108,7 +109,7 @@ export const StatsBanner: React.FC<StatsBannerProps> = ({
       <button
         onClick={() => handleCardClick("usa")}
         className={`glass-card p-4 rounded-2xl relative overflow-hidden group text-left border-l-4 border-l-blue-500 transition-all duration-200 cursor-pointer ${
-          selectedCountry === "usa"
+          isUsaSelected
             ? "ring-2 ring-blue-500/90 bg-blue-950/40 shadow-lg shadow-blue-950/50"
             : "hover:border-slate-600 hover:-translate-y-0.5"
         }`}
@@ -121,7 +122,7 @@ export const StatsBanner: React.FC<StatsBannerProps> = ({
             <span>USA Channel</span>
             <span>🇺🇸</span>
           </span>
-          {selectedCountry === "usa" ? (
+          {isUsaSelected ? (
             <span className="text-[10px] font-bold text-blue-200 bg-blue-800/80 px-1.5 py-0.5 rounded shadow">
               Filtered ✓
             </span>
@@ -148,7 +149,7 @@ export const StatsBanner: React.FC<StatsBannerProps> = ({
       <button
         onClick={() => handleCardClick("both")}
         className={`glass-card p-4 rounded-2xl relative overflow-hidden group text-left border-l-4 border-l-indigo-500 transition-all duration-200 cursor-pointer ${
-          selectedCountry === "both"
+          isBothSelected
             ? "ring-2 ring-cyan-500/90 bg-indigo-950/40 shadow-lg shadow-indigo-950/50"
             : "hover:border-slate-600 hover:-translate-y-0.5"
         }`}
@@ -158,7 +159,7 @@ export const StatsBanner: React.FC<StatsBannerProps> = ({
         </div>
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1 flex items-center justify-between">
           <span>Cross-Border</span>
-          {selectedCountry === "both" ? (
+          {isBothSelected ? (
             <span className="text-[10px] font-bold text-cyan-200 bg-cyan-900/80 px-1.5 py-0.5 rounded shadow">
               Filtered ✓
             </span>

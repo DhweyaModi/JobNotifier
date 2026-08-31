@@ -9,26 +9,26 @@ def test_live_google_api():
     print("=" * 60)
     print("📡 STEP 1: Live Ping to Google Careers API")
     print("=" * 60)
-    
-    # 1. Test live endpoint with general student/intern search
+
+    python test_google.py# 1. Test live endpoint with general student/intern search
     params = {
         "q": "intern",
         "page_size": 10,
         "sort_by": "relevance",
     }
-    
+
     try:
         resp = requests.get(BASE_URL, params=params, headers=HEADERS, timeout=15)
         print(f"HTTP Status Code : {resp.status_code} (200 = Success)")
         print(f"Content-Type     : {resp.headers.get('Content-Type')}")
-        
+
         if resp.status_code == 200:
             data = resp.json()
             total_count = data.get("count", 0)
             jobs = data.get("jobs", [])
             print(f"Total Google API Search Results: {total_count}")
             print(f"Jobs returned in this batch: {len(jobs)}")
-            
+
             if jobs:
                 sample = jobs[0]
                 print("\n[Sample Raw Job from Google's Server]:")
@@ -43,7 +43,7 @@ def test_actual_scraper_run():
     print("\n" + "=" * 60)
     print("🔍 STEP 2: Running fetch_google_jobs() Scraper Function")
     print("=" * 60)
-    
+
     jobs = fetch_google_jobs()
     print(f"Scraper returned: {len(jobs)} filtered software engineering internship(s)")
     for j in jobs:
@@ -56,7 +56,7 @@ def simulate_pipeline_processing():
     print("\n" + "=" * 60)
     print("⚡ STEP 3: Simulating High Tech Slack Notification & UI Processing")
     print("=" * 60)
-    
+
     # Simulated newly discovered Google SWE Intern role
     simulated_google_job = (
         "Google",
@@ -66,13 +66,13 @@ def simulate_pipeline_processing():
         "https://careers.google.com/jobs/results/1337420/",
         "2026-08-30"
     )
-    
+
     source, title, company, location, url, date = simulated_google_job
-    
+
     country = classify_country(location)
     is_ht = is_high_tech_job(title, company)
     slack_formatted = format_job_message(source, title, company, location, url)
-    
+
     print(f"Company Classified As High Tech: {is_ht} ✅")
     print(f"Country Classification         : {country.upper()} 🇨🇦🇺🇸")
     print(f"\n[Generated Slack Notification Message]:")

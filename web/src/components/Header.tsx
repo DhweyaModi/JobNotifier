@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Briefcase, Bell, LayoutDashboard, CheckSquare, Settings, RefreshCw, User as UserIcon, LogOut, LogIn } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
+import { SlackCommunityModal } from "@/components/SlackCommunityModal";
 
 interface HeaderProps {
   activeTab: "feed" | "tracker" | "settings";
@@ -24,6 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { user, signOut, loading: authLoading } = useAuth();
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [slackModalOpen, setSlackModalOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
   const userEmail = user?.email || "";
@@ -115,6 +117,15 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             </nav>
 
+            {/* Join Slack Community Button */}
+            <button
+              onClick={() => setSlackModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-purple-950 to-indigo-950 hover:from-purple-900 hover:to-indigo-900 text-purple-200 border border-purple-500/40 text-xs font-bold transition shadow-md shadow-purple-950/40 cursor-pointer"
+            >
+              <span className="text-sm">💬</span>
+              <span className="hidden sm:inline">Join Slack</span>
+            </button>
+
             <button
               onClick={onRefresh}
               disabled={isRefreshing}
@@ -178,6 +189,12 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       </header>
+
+      {/* Slack Community Modal */}
+      <SlackCommunityModal
+        isOpen={slackModalOpen}
+        onClose={() => setSlackModalOpen(false)}
+      />
 
       {/* Sign In / Sign Up Modal */}
       <AuthModal

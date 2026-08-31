@@ -8,21 +8,59 @@ BATCH_SIZE = 15
 def format_job_message(source_label: str, title: str, company: str, location: str, url: str) -> str:
     """Format a job posting with company first, then title, location, and source."""
     apply_link = f"<{url}|Apply>" if url else "No link"
+    is_ht = is_high_tech_job(title, company) or source_label.lower() in ("google", "amazon")
+    ht_badge = "🚀 *[HIGH TECH]* " if is_ht else ""
     return (
-        f"🏢 *{company}* — {title} — 📍 {location}\n"
+        f"{ht_badge}🏢 *{company}* — {title} — 📍 {location}\n"
         f"   🔗 {apply_link}\n"
         f"   📋 _Source: {source_label}_"
     )
+
+HIGH_TECH_COMPANIES = {
+    "google", "meta", "apple", "amazon", "microsoft", "netflix", "nvidia",
+    "openai", "anthropic", "palantir", "databricks", "stripe", "snowflake",
+    "uber", "airbnb", "scale ai", "cohere", "mistral", "spacex", "tesla",
+    "anduril", "waymo", "deepmind", "figma", "notion", "linear",
+    "jane street", "citadel", "jump trading", "hudson river trading", "hrt",
+    "two sigma", "de shaw", "d. e. shaw", "optiver", "five rings", "drw",
+    "imc", "flow traders", "radix trading", "akuna capital", "sig", "susquehanna"
+}
+
+HIGH_TECH_KEYWORDS = {
+    "ai", "artificial intelligence", "machine learning", "ml", "deep learning",
+    "llm", "genai", "quant", "quantitative", "trader", "trading",
+    "robotics", "computer vision", "nlp", "compiler", "kernel", "silicon",
+    "gpu", "cuda", "distributed systems", "high performance", "hpc"
+}
+
+def is_high_tech_job(title: str, company: str) -> bool:
+    """Returns True if the job is from a tier-1 high-tech company or is an AI/ML/Quant role."""
+    from scrapers.base_scraper import normalize_company
+    comp_norm = normalize_company(company)
+    tit_norm = title.lower()
+
+    if any(c in comp_norm for c in HIGH_TECH_COMPANIES):
+        return True
+
+    if any(k in tit_norm for k in HIGH_TECH_KEYWORDS):
+        return True
+
+    return False
 
 def match_job_filters(job: tuple, filters: dict) -> bool:
     """
     Returns True if the job matches the user filters, False otherwise.
     job: (source_label, title, company, location, url)
-    filters: dict containing keywords, countries, roles, min_grad_year
+    filters: dict containing keywords, countries, roles, high_tech_only, min_grad_year
     """
     source_label, title, company, location, url = job
     
-    # 1. Country match
+    # 1. High Tech filter (if enabled for channel)
+    if filters.get("high_tech_only"):
+        if not is_high_tech_job(title, company):
+            return False
+
+    # 2. Country match
     countries = filters.get("countries", [])
     if countries:
         job_country = classify_country(location)
@@ -42,14 +80,14 @@ def match_job_filters(job: tuple, filters: dict) -> bool:
         if not matched_country:
             return False
             
-    # 2. Keywords match (checks title and company, case-insensitive)
+    # 3. Keywords match (checks title and company, case-insensitive)
     keywords = filters.get("keywords", [])
     if keywords:
         text_to_search = f"{title} {company}".lower()
         if not any(k.lower() in text_to_search for k in keywords):
             return False
             
-    # 3. Roles match (checks title, case-insensitive)
+    # 4. Roles match (checks title, case-insensitive)
     roles = filters.get("roles", [])
     if roles:
         title_lower = title.lower()

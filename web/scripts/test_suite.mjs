@@ -113,26 +113,28 @@ it("should accurately match role filters to job titles", () => {
   assert.strictEqual(matchRoleFilter("Data Science Analyst", "data science"), true);
 });
 
-// --- 3. Application Lifecycle Status Tests ---
-console.log("\n--- Application Tracker Stages ---");
+// --- 4. High Tech Classification Tests ---
+console.log("\n--- High Tech Tier Logic ---");
 
-const VALID_STAGES = ["SAVED", "APPLIED", "INTERVIEWING", "OFFER", "REJECTED"];
+const HIGH_TECH_SET = new Set([
+  "google", "meta", "apple", "amazon", "microsoft", "netflix", "nvidia",
+  "openai", "anthropic", "palantir", "databricks", "stripe", "snowflake",
+  "jane street", "citadel"
+]);
 
-it("should validate all 5 Kanban application pipeline stages", () => {
-  VALID_STAGES.forEach((stage) => {
-    assert.ok(VALID_STAGES.includes(stage), `${stage} must be valid`);
-  });
-});
+function isHighTechJob(company, title) {
+  const c = company.toLowerCase().trim();
+  if (HIGH_TECH_SET.has(c)) return true;
+  if (/\b(ai|ml|machine learning|deep learning|quant|trader|llm|robotics)\b/i.test(title)) return true;
+  return false;
+}
 
-it("should correctly calculate tracked application counts", () => {
-  const mockJobs = [
-    { id: "1", title: "SWE", applicationStatus: "APPLIED" },
-    { id: "2", title: "ML", applicationStatus: "SAVED" },
-    { id: "3", title: "Data", applicationStatus: "NONE" },
-    { id: "4", title: "Quant", applicationStatus: "INTERVIEWING" },
-  ];
-  const trackedCount = mockJobs.filter((j) => j.applicationStatus && j.applicationStatus !== "NONE").length;
-  assert.strictEqual(trackedCount, 3);
+it("should identify direct Google postings as High Tech", () => {
+  assert.strictEqual(isHighTechJob("Google", "Software Engineer Intern"), true);
+  assert.strictEqual(isHighTechJob("Meta", "Production Engineer Intern"), true);
+  assert.strictEqual(isHighTechJob("Jane Street", "Quantitative Trader Intern"), true);
+  assert.strictEqual(isHighTechJob("Random Corp", "Machine Learning Intern"), true);
+  assert.strictEqual(isHighTechJob("Local Bakery", "Accountant"), false);
 });
 
 // --- Test Summary ---

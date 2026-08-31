@@ -149,10 +149,23 @@ export const JobCard: React.FC<JobCardProps> = ({
 
   const exactScrapedTime = formatExactTime(job.scrapedAt, job.createdAt, job.postedTimestamp);
 
+  const HIGH_TECH_COMPANIES = new Set([
+    "google", "meta", "apple", "amazon", "microsoft", "netflix", "nvidia",
+    "openai", "anthropic", "palantir", "databricks", "spacex", "tesla", "figma", "notion", "linear"
+  ]);
+
+  const isHighTech =
+    job.source === "Google" ||
+    job.source === "Amazon" ||
+    HIGH_TECH_COMPANIES.has(job.company.toLowerCase().trim()) ||
+    /\b(ai|ml|machine learning|deep learning|quant|trader|llm|robotics)\b/i.test(job.title);
+
   return (
-    <div className="glass-card rounded-2xl p-5 flex flex-col justify-between relative group">
+    <div className={`glass-card rounded-2xl p-5 flex flex-col justify-between relative group ${
+      isHighTech ? "border-amber-500/40 hover:border-amber-400/80 shadow-lg shadow-amber-950/20" : ""
+    }`}>
       <div>
-        {/* Card Header: Company Logo, Country Badge, Bookmark */}
+        {/* Card Header: Company Logo, Country Badge, High Tech Tag, Bookmark */}
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-3">
             <div
@@ -163,11 +176,18 @@ export const JobCard: React.FC<JobCardProps> = ({
               {job.company.charAt(0).toUpperCase()}
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-slate-300 flex items-center gap-1.5 line-clamp-1">
-                <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <span>{job.company}</span>
-              </h4>
-              <div className="flex items-center gap-2 mt-0.5">
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-semibold text-slate-300 flex items-center gap-1.5 line-clamp-1">
+                  <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span>{job.company}</span>
+                </h4>
+                {isHighTech && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500/20 via-rose-500/20 to-purple-500/20 text-amber-300 border border-amber-500/40 shadow-sm shrink-0">
+                    ⚡ HIGH TECH
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-1">
                 {getCountryBadge(job.country)}
                 <span className="text-[11px] font-mono text-slate-400 bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800 line-clamp-1">
                   {job.source}

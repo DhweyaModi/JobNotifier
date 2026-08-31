@@ -37,7 +37,8 @@ function normalizeTitle(title) {
        .replace(/\b(scientists|science)\b/g, "scientist")
        .replace(/\b(analysts|analytics)\b/g, "analyst")
        .replace(/\b(summer|fall|winter|spring|202[0-9]|203[0-9]|internship|intern|co-?op|coop|hybrid|remote|in-?person|in-?office|onsite|new grad|entry level|early career|usa?|canada|student|position|role|job)\b/g, " ");
-  return t.replace(/[^a-z0-9]+/g, " ").trim();
+  t = t.replace(/[^a-z0-9]+/g, " ").trim();
+  return t.replace(/\b(\w+)(?:\s+\1\b)+/g, "$1");
 }
 
 function normalizeUrl(url) {

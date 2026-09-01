@@ -6,30 +6,35 @@ import { supabase } from "@/lib/supabase";
 
 interface AuthContextType {
   user: User | null;
+  guestName: string | null;
   session: Session | null;
   loading: boolean;
   signInWithOAuth: (provider: "google" | "github") => Promise<{ error?: string }>;
   signInWithOtp: (email: string) => Promise<{ error?: string }>;
   signInWithPassword: (email: string, password: string) => Promise<{ error?: string }>;
   signUpWithPassword: (email: string, password: string) => Promise<{ error?: string }>;
+  continueAsGuest: (name: string) => Promise<void>;
   signOut: () => Promise<void>;
   isConfigured: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  guestName: null,
   session: null,
   loading: true,
   signInWithOAuth: async () => ({}),
   signInWithOtp: async () => ({}),
   signInWithPassword: async () => ({}),
   signUpWithPassword: async () => ({}),
+  continueAsGuest: async () => {},
   signOut: async () => {},
   isConfigured: false,
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [guestName, setGuestName] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const isConfigured = !!supabase;
@@ -39,14 +44,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!supabase) return;
     try {
       const email = authUser.email || "";
+      const name =
+        authUser.user_metadata?.full_name ||
+        authUser.user_metadata?.name ||
+        email.split("@")[0] ||
+        "User";
+      const avatarUrl =
+        authUser.user_metadata?.avatar_url ||
+        authUser.user_metadata?.picture ||
+        "";
 
-      // Upsert into users table
       await supabase.from("users").upsert(
         {
           id: authUser.id,
           email: email,
+          name: name,
+          avatar_url: avatarUrl,
           platform: "web",
-          webhook_url: "", // Default empty webhook for web users
+          last_sign_in_at: new Date().toISOString(),
         },
         { onConflict: "id" }
       );
@@ -56,6 +71,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    // Check saved guest name
+    try {
+      const savedGuest = localStorage.getItem("jobnotifier_guest_name");
+      if (savedGuest) setGuestName(savedGuest);
+    } catch (e) {
+      console.warn("Could not load guest name:", e);
+    }
+
     if (!supabase) {
       setLoading(false);
       return;
@@ -87,6 +110,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscription.unsubscribe();
     };
   }, []);
+
+  const continueAsGuest = async (name: string) => {
+    const trimmed = name.trim() || "Guest";
+    setGuestName(trimmed);
+    
+    // Generate persistent guest UUID
+    let guestId = "";
+    try {
+      guestId = localStorage.getItem("jobnotifier_guest_id") || "";
+      if (!guestId) {
+        guestId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `guest-${Date.now()}`;
+        localStorage.setItem("jobnotifier_guest_id", guestId);
+      }
+      localStorage.setItem("jobnotifier_guest_name", trimmed);
+    } catch (e) {
+      guestId = `guest-${Date.now()}`;
+    }
+
+    // Trace guest user in Supabase
+    if (supabase) {
+      try {
+        await supabase.from("users").upsert(
+          {
+            id: guestId,
+            name: trimmed,
+            email: `${trimmed.toLowerCase().replace(/[^a-z0-9]/g, "_")}@guest.jobnotifier.com`,
+            platform: "guest",
+            last_sign_in_at: new Date().toISOString(),
+          },
+          { onConflict: "id" }
+        );
+      } catch (err) {
+        console.warn("Could not record guest in Supabase:", err);
+      }
+    }
+  };
 
   const signInWithOAuth = async (provider: "google" | "github") => {
     if (!supabase) return { error: "Supabase is not configured." };
@@ -154,6 +213,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    try {
+      localStorage.removeItem("jobnotifier_guest_name");
+      localStorage.removeItem("jobnotifier_guest_id");
+    } catch (e) {}
+    setGuestName(null);
+
     if (!supabase) return;
     try {
       await supabase.auth.signOut();
@@ -168,12 +233,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         user,
+        guestName,
         session,
         loading,
         signInWithOAuth,
         signInWithOtp,
         signInWithPassword,
         signUpWithPassword,
+        continueAsGuest,
         signOut,
         isConfigured,
       }}

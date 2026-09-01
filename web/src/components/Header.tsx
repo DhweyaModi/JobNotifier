@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Briefcase, Bell, LayoutDashboard, CheckSquare, Settings, RefreshCw, User as UserIcon, LogOut, LogIn } from "lucide-react";
+import { Briefcase, LayoutDashboard, CheckSquare, Settings, RefreshCw, LogOut, LogIn, UserCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
 import { SlackCommunityModal } from "@/components/SlackCommunityModal";
@@ -23,13 +23,16 @@ export const Header: React.FC<HeaderProps> = ({
   onRefresh,
   isRefreshing,
 }) => {
-  const { user, signOut, loading: authLoading } = useAuth();
+  const { user, guestName, signOut, loading: authLoading } = useAuth();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [slackModalOpen, setSlackModalOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
   const userEmail = user?.email || "";
-  const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || userEmail.split("@")[0] || "User";
+  const userName =
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    (userEmail ? userEmail.split("@")[0] : guestName || "Guest");
   const userAvatar = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || "";
 
   return (
@@ -48,7 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <div>
                 <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                  JobNotifier <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-medium">v2.0</span>
+                  Dhweya&apos;s Job Notifier <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-medium">v2.0</span>
                 </h1>
                 <p className="text-xs text-slate-400 flex items-center gap-1.5">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
@@ -135,12 +138,12 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Sync</span>
             </button>
 
-            {/* User Auth Profile / Sign In */}
+            {/* User Auth Profile / Guest Indicator / Sign In */}
             {user ? (
               <div className="relative">
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center gap-2.5 p-1.5 pr-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/40 transition"
+                  className="flex items-center gap-2.5 p-1.5 pr-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/40 transition cursor-pointer"
                 >
                   {userAvatar ? (
                     <img
@@ -169,10 +172,51 @@ export const Header: React.FC<HeaderProps> = ({
                         signOut();
                         setUserDropdownOpen(false);
                       }}
-                      className="w-full mt-1 flex items-center gap-2 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-950/40 rounded-xl transition"
+                      className="w-full mt-1 flex items-center gap-2 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-950/40 rounded-xl transition cursor-pointer"
                     >
                       <LogOut className="w-3.5 h-3.5" />
                       <span>Sign Out</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : guestName ? (
+              <div className="relative">
+                <button
+                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-950/50 border border-indigo-500/30 hover:border-indigo-500/60 transition cursor-pointer"
+                >
+                  <UserCheck className="w-4 h-4 text-indigo-400" />
+                  <span className="text-xs font-semibold text-indigo-200 max-w-[100px] truncate">
+                    {guestName}
+                  </span>
+                </button>
+
+                {userDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-52 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2">
+                    <div className="px-3 py-2 border-b border-slate-800">
+                      <p className="text-xs font-bold text-white truncate">{guestName}</p>
+                      <p className="text-[10px] text-indigo-400 font-semibold">Guest Visitor</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setAuthModalOpen(true);
+                        setUserDropdownOpen(false);
+                      }}
+                      className="w-full mt-1 flex items-center gap-2 px-3 py-2 text-xs font-medium text-indigo-300 hover:bg-indigo-950/40 rounded-xl transition cursor-pointer"
+                    >
+                      <LogIn className="w-3.5 h-3.5" />
+                      <span>Sign In / Switch</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        signOut();
+                        setUserDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-950/40 rounded-xl transition cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Clear Guest</span>
                     </button>
                   </div>
                 )}
@@ -196,13 +240,12 @@ export const Header: React.FC<HeaderProps> = ({
         onClose={() => setSlackModalOpen(false)}
       />
 
-      {/* Sign In / Sign Up Modal */}
+      {/* Sign In / Sign Up / Guest Entry Modal */}
       <AuthModal
-        isOpen={authModalOpen}
+        isOpen={authModalOpen || (!authLoading && !user && !guestName)}
         onClose={() => setAuthModalOpen(false)}
-        isMandatory={false}
+        isMandatory={!authLoading && !user && !guestName}
       />
     </>
   );
 };
-

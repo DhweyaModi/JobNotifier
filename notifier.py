@@ -17,24 +17,14 @@ def format_job_message(source_label: str, title: str, company: str, location: st
     )
 
 HIGH_TECH_COMPANIES = {
-    "google", "meta", "apple", "amazon", "microsoft", "netflix", "nvidia",
-    "openai", "anthropic", "palantir", "databricks", "stripe", "snowflake",
-    "uber", "airbnb", "scale ai", "cohere", "mistral", "spacex", "tesla",
-    "anduril", "waymo", "deepmind", "figma", "notion", "linear",
-    "jane street", "citadel", "jump trading", "hudson river trading", "hrt",
-    "two sigma", "de shaw", "d. e. shaw", "optiver", "five rings", "drw",
-    "imc", "flow traders", "radix trading", "akuna capital", "sig", "susquehanna"
+    "google",
+    "microsoft",
 }
 
-HIGH_TECH_KEYWORDS = {
-    "ai", "artificial intelligence", "machine learning", "ml", "deep learning",
-    "llm", "genai", "quant", "quantitative", "trader", "trading",
-    "robotics", "computer vision", "nlp", "compiler", "kernel", "silicon",
-    "gpu", "cuda", "distributed systems", "high performance", "hpc"
-}
+HIGH_TECH_KEYWORDS = set()
 
 def is_high_tech_job(title: str, company: str) -> bool:
-    """Returns True if the job is from a tier-1 high-tech company or is an AI/ML/Quant role."""
+    """Returns True if the job is from a high-tech company (Google or Microsoft)."""
     from scrapers.base_scraper import normalize_company
     comp_norm = normalize_company(company)
     tit_norm = title.lower()

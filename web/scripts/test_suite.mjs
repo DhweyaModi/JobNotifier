@@ -118,23 +118,18 @@ it("should accurately match role filters to job titles", () => {
 console.log("\n--- High Tech Tier Logic ---");
 
 const HIGH_TECH_SET = new Set([
-  "google", "meta", "apple", "amazon", "microsoft", "netflix", "nvidia",
-  "openai", "anthropic", "palantir", "databricks", "stripe", "snowflake",
-  "jane street", "citadel"
+  "google", "microsoft"
 ]);
 
 function isHighTechJob(company, title) {
   const c = company.toLowerCase().trim();
-  if (HIGH_TECH_SET.has(c)) return true;
-  if (/\b(ai|ml|machine learning|deep learning|quant|trader|llm|robotics)\b/i.test(title)) return true;
-  return false;
+  return HIGH_TECH_SET.has(c);
 }
 
-it("should identify direct Google postings as High Tech", () => {
+it("should identify direct Google and Microsoft postings as High Tech", () => {
   assert.strictEqual(isHighTechJob("Google", "Software Engineer Intern"), true);
-  assert.strictEqual(isHighTechJob("Meta", "Production Engineer Intern"), true);
-  assert.strictEqual(isHighTechJob("Jane Street", "Quantitative Trader Intern"), true);
-  assert.strictEqual(isHighTechJob("Random Corp", "Machine Learning Intern"), true);
+  assert.strictEqual(isHighTechJob("Microsoft", "Explore Intern"), true);
+  assert.strictEqual(isHighTechJob("Random Corp", "Machine Learning Intern"), false);
   assert.strictEqual(isHighTechJob("Local Bakery", "Accountant"), false);
 });
 

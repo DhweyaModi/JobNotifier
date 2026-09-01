@@ -18,6 +18,23 @@ interface AuthContextType {
   isConfigured: boolean;
 }
 
+function generateUUID(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    try {
+      return crypto.randomUUID();
+    } catch (e) {}
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+function isValidUUID(str: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+}
+
 const AuthContext = createContext<AuthContextType>({
   user: null,
   guestName: null,
@@ -47,8 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const name =
         authUser.user_metadata?.full_name ||
         authUser.user_metadata?.name ||
-        email.split("@")[0] ||
-        "User";
+        (email ? email.split("@")[0] : "User");
       const avatarUrl =
         authUser.user_metadata?.avatar_url ||
         authUser.user_metadata?.picture ||
@@ -115,17 +131,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const trimmed = name.trim() || "Guest";
     setGuestName(trimmed);
     
-    // Generate persistent guest UUID
+    // Generate RFC4122 compliant UUID
     let guestId = "";
     try {
-      guestId = localStorage.getItem("jobnotifier_guest_id") || "";
-      if (!guestId) {
-        guestId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `guest-${Date.now()}`;
+      const stored = localStorage.getItem("jobnotifier_guest_id");
+      if (stored && isValidUUID(stored)) {
+        guestId = stored;
+      } else {
+        guestId = generateUUID();
         localStorage.setItem("jobnotifier_guest_id", guestId);
       }
       localStorage.setItem("jobnotifier_guest_name", trimmed);
     } catch (e) {
-      guestId = `guest-${Date.now()}`;
+      guestId = generateUUID();
     }
 
     // Trace guest user in Supabase

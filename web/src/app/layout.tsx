@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dhweya's Job Notifier — Tech & AI Internship Tracker",
+  title: "JobNotifier — Tech & AI Internship Tracker",
   description: "Live tech internships and new grad jobs across Canada and USA with instant notifications and application tracking.",
 };
 

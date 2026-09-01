@@ -51,7 +51,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleOAuth = async (provider: "google" | "github") => {
+  const handleOAuth = async (provider: "google") => {
     setLoading(true);
     setMessage(null);
     try {
@@ -60,7 +60,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         if (error.toLowerCase().includes("not enabled") || error.toLowerCase().includes("unsupported provider")) {
           setMessage({
             type: "error",
-            text: `${provider === "google" ? "Google" : "GitHub"} OAuth is not enabled in your Supabase dashboard yet. Use Email sign-in or Continue as Guest below.`,
+            text: "Google OAuth is not enabled in your Supabase dashboard yet. Use Email sign-in or Continue as Guest below.",
           });
         } else {
           setMessage({ type: "error", text: error });
@@ -84,7 +84,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     try {
       const { error } = await signInWithOtp(email);
       if (error) {
-        setMessage({ type: "error", text: error });
+        if (error.toLowerCase().includes("security") || error.toLowerCase().includes("rate limit") || error.toLowerCase().includes("after")) {
+          setMessage({
+            type: "error",
+            text: `For security purposes, you can only request this after 44 seconds. Please wait before requesting another magic link, or check your spam/inbox.`,
+          });
+        } else {
+          setMessage({ type: "error", text: error });
+        }
       } else {
         setMessage({
           type: "success",
@@ -110,7 +117,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (isSignUp) {
         const { error } = await signUpWithPassword(email, password);
         if (error) {
-          setMessage({ type: "error", text: error });
+          if (error.toLowerCase().includes("already registered") || error.toLowerCase().includes("user already")) {
+            setMessage({
+              type: "error",
+              text: "An account with this email already exists. Sign in or click 'Send magic link' below.",
+            });
+          } else {
+            setMessage({ type: "error", text: error });
+          }
         } else {
           setMessage({
             type: "success",
@@ -120,7 +134,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       } else {
         const { error } = await signInWithPassword(email, password);
         if (error) {
-          setMessage({ type: "error", text: error });
+          if (error.toLowerCase().includes("email not confirmed") || error.toLowerCase().includes("not confirmed")) {
+            setMessage({
+              type: "error",
+              text: "Email not confirmed. Please click 'Send magic link' below to sign in directly without a password, or check your inbox.",
+            });
+          } else {
+            setMessage({ type: "error", text: error });
+          }
         } else {
           if (onClose) onClose();
         }
@@ -150,7 +171,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <Briefcase className="w-6 h-6" />
           </div>
           <h2 className="text-2xl font-bold text-white tracking-tight">
-            Dhweya&apos;s Job Notifier
+            JobNotifier
           </h2>
           <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
             Sign in or enter your name to explore live tech & AI internships, save preferences, and track applications.
@@ -348,18 +369,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 />
               </svg>
               <span>Continue with Google</span>
-            </button>
-
-            {/* Continue with GitHub */}
-            <button
-              onClick={() => handleOAuth("github")}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm border border-slate-700 transition shadow-md disabled:opacity-50 cursor-pointer"
-            >
-              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-              </svg>
-              <span>Continue with GitHub</span>
             </button>
 
             {/* Continue as Guest Button */}

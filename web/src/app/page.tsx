@@ -434,7 +434,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
-        <p>Dhweya&apos;s Job Notifier Dashboard • Active Scrapers & Strict Country Filtering Enabled</p>
+        <p>JobNotifier Dashboard • Active Scrapers & Strict Country Filtering Enabled</p>
       </footer>
 
       {/* Floating Scroll to Top Button */}

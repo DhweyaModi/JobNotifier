@@ -9,10 +9,11 @@ interface AuthContextType {
   guestName: string | null;
   session: Session | null;
   loading: boolean;
-  signInWithOAuth: (provider: "google" | "github") => Promise<{ error?: string }>;
+  signInWithOAuth: (provider: "google") => Promise<{ error?: string }>;
   signInWithOtp: (email: string) => Promise<{ error?: string }>;
   signInWithPassword: (email: string, password: string) => Promise<{ error?: string }>;
   signUpWithPassword: (email: string, password: string) => Promise<{ error?: string }>;
+  resetPasswordForEmail: (email: string) => Promise<{ error?: string }>;
   continueAsGuest: (name: string) => Promise<void>;
   signOut: () => Promise<void>;
   isConfigured: boolean;
@@ -44,6 +45,7 @@ const AuthContext = createContext<AuthContextType>({
   signInWithOtp: async () => ({}),
   signInWithPassword: async () => ({}),
   signUpWithPassword: async () => ({}),
+  resetPasswordForEmail: async () => ({}),
   continueAsGuest: async () => {},
   signOut: async () => {},
   isConfigured: false,
@@ -106,6 +108,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       if (session?.user) {
         syncUserProfile(session.user);
+        if (typeof window !== "undefined" && window.location.hash.includes("access_token")) {
+          window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        }
       }
       setLoading(false);
     });
@@ -118,6 +123,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       if (session?.user) {
         syncUserProfile(session.user);
+        if (typeof window !== "undefined" && window.location.hash.includes("access_token")) {
+          window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        }
       }
       setLoading(false);
     });
@@ -165,7 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signInWithOAuth = async (provider: "google" | "github") => {
+  const signInWithOAuth = async (provider: "google") => {
     if (!supabase) return { error: "Supabase is not configured." };
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -187,13 +195,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+          emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
         },
       });
       if (error) return { error: error.message };
       return {};
     } catch (err: any) {
       return { error: err.message || "Failed to send magic link" };
+    }
+  };
+
+  const resetPasswordForEmail = async (email: string) => {
+    if (!supabase) return { error: "Supabase is not configured." };
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
+      });
+      if (error) return { error: error.message };
+      return {};
+    } catch (err: any) {
+      return { error: err.message || "Failed to send reset link" };
     }
   };
 
@@ -219,7 +240,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email,
         password,
         options: {
-          emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+          emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
         },
       });
       if (error) return { error: error.message };
@@ -258,6 +279,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signInWithOtp,
         signInWithPassword,
         signUpWithPassword,
+        resetPasswordForEmail,
         continueAsGuest,
         signOut,
         isConfigured,

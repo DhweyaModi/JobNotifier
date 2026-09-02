@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { Briefcase, Mail, Lock, Sparkles, AlertCircle, CheckCircle2, Loader2, ArrowRight, UserCheck } from "lucide-react";
+import { Briefcase, Mail, Lock, Sparkles, AlertCircle, CheckCircle2, Loader2, ArrowRight, UserCheck, KeyRound } from "lucide-react";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -20,11 +20,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     signInWithOtp,
     signInWithPassword,
     signUpWithPassword,
+    resetPasswordForEmail,
     continueAsGuest,
     isConfigured,
   } = useAuth();
 
-  const [mode, setMode] = useState<"oauth" | "magic_link" | "password" | "guest">("oauth");
+  const [mode, setMode] = useState<"oauth" | "magic_link" | "password" | "guest" | "forgot_password">("oauth");
   const [isSignUp, setIsSignUp] = useState<boolean>(false);
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
@@ -100,6 +101,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
     } catch (err: any) {
       setMessage({ type: "error", text: err?.message || "Failed to send magic link." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      setMessage({ type: "error", text: "Please enter your email address." });
+      return;
+    }
+    setLoading(true);
+    setMessage(null);
+    try {
+      const { error } = await resetPasswordForEmail(email);
+      if (error) {
+        if (error.toLowerCase().includes("security") || error.toLowerCase().includes("rate limit") || error.toLowerCase().includes("after")) {
+          setMessage({
+            type: "error",
+            text: `For security purposes, you can only request this after 44 seconds. Please wait before requesting another reset email.`,
+          });
+        } else {
+          setMessage({ type: "error", text: error });
+        }
+      } else {
+        setMessage({
+          type: "success",
+          text: `Password reset link sent to ${email}! Check your inbox and spam folder.`,
+        });
+      }
+    } catch (err: any) {
+      setMessage({ type: "error", text: err?.message || "Failed to send reset link." });
     } finally {
       setLoading(false);
     }
@@ -242,6 +275,63 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               &larr; Back to sign-in options
             </button>
           </form>
+        ) : mode === "forgot_password" ? (
+          /* Forgot Password Form */
+          <form onSubmit={handleForgotPassword} className="space-y-3">
+            <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/30 mb-2">
+              <p className="text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
+                <KeyRound className="w-4 h-4 text-indigo-400" />
+                <span>Reset Your Password</span>
+              </p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Enter your email address and we&apos;ll send you a secure link to reset your password.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 transition disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+              <span>Send Password Reset Link</span>
+            </button>
+
+            <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+              <button
+                type="button"
+                onClick={() => setMode("password")}
+                className="hover:text-indigo-300"
+              >
+                &larr; Back to sign in
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMode("magic_link")}
+                className="text-indigo-400 hover:text-indigo-300 font-semibold"
+              >
+                Use magic sign-in link
+              </button>
+            </div>
+          </form>
         ) : mode === "magic_link" ? (
           <form onSubmit={handleMagicLink} className="space-y-3">
             <div>
@@ -298,9 +388,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-semibold text-slate-300">
+                  Password
+                </label>
+                {!isSignUp && (
+                  <button
+                    type="button"
+                    onClick={() => setMode("forgot_password")}
+                    className="text-[11px] text-indigo-400 hover:text-indigo-300 font-medium"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                 <input

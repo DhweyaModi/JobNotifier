@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { Briefcase, Mail, Lock, Sparkles, AlertCircle, CheckCircle2, Loader2, ArrowRight } from "lucide-react";
+import { Briefcase, Mail, Lock, Sparkles, AlertCircle, CheckCircle2, Loader2, ArrowRight, UserCheck } from "lucide-react";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -20,19 +20,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     signInWithOtp,
     signInWithPassword,
     signUpWithPassword,
+    continueAsGuest,
     isConfigured,
   } = useAuth();
 
-  const [mode, setMode] = useState<"oauth" | "magic_link" | "password">("oauth");
+  const [mode, setMode] = useState<"oauth" | "magic_link" | "password" | "guest">("oauth");
   const [isSignUp, setIsSignUp] = useState<boolean>(false);
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [guestNameInput, setGuestNameInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
 
   if (!isOpen) return null;
 
-  const handleOAuth = async (provider: "google" | "github") => {
+  const handleGuestEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!guestNameInput.trim()) {
+      setMessage({ type: "error", text: "Please enter your name to continue as guest." });
+      return;
+    }
+    setLoading(true);
+    try {
+      await continueAsGuest(guestNameInput.trim());
+      if (onClose) onClose();
+    } catch (err: any) {
+      setMessage({ type: "error", text: err?.message || "Failed to continue as guest." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOAuth = async (provider: "google") => {
     setLoading(true);
     setMessage(null);
     try {
@@ -41,7 +60,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         if (error.toLowerCase().includes("not enabled") || error.toLowerCase().includes("unsupported provider")) {
           setMessage({
             type: "error",
-            text: `${provider === "google" ? "Google" : "GitHub"} OAuth is not enabled in your Supabase dashboard yet. Use Email sign-in below or enable ${provider} in Supabase -> Auth -> Providers.`,
+            text: "Google OAuth is not enabled in your Supabase dashboard yet. Use Email sign-in or Continue as Guest below.",
           });
         } else {
           setMessage({ type: "error", text: error });
@@ -65,7 +84,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     try {
       const { error } = await signInWithOtp(email);
       if (error) {
-        setMessage({ type: "error", text: error });
+        if (error.toLowerCase().includes("security") || error.toLowerCase().includes("rate limit") || error.toLowerCase().includes("after")) {
+          setMessage({
+            type: "error",
+            text: `For security purposes, you can only request this after 44 seconds. Please wait before requesting another magic link, or check your spam/inbox.`,
+          });
+        } else {
+          setMessage({ type: "error", text: error });
+        }
       } else {
         setMessage({
           type: "success",
@@ -91,7 +117,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (isSignUp) {
         const { error } = await signUpWithPassword(email, password);
         if (error) {
-          setMessage({ type: "error", text: error });
+          if (error.toLowerCase().includes("already registered") || error.toLowerCase().includes("user already")) {
+            setMessage({
+              type: "error",
+              text: "An account with this email already exists. Sign in or click 'Send magic link' below.",
+            });
+          } else {
+            setMessage({ type: "error", text: error });
+          }
         } else {
           setMessage({
             type: "success",
@@ -101,7 +134,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       } else {
         const { error } = await signInWithPassword(email, password);
         if (error) {
-          setMessage({ type: "error", text: error });
+          if (error.toLowerCase().includes("email not confirmed") || error.toLowerCase().includes("not confirmed")) {
+            setMessage({
+              type: "error",
+              text: "Email not confirmed. Please click 'Send magic link' below to sign in directly without a password, or check your inbox.",
+            });
+          } else {
+            setMessage({ type: "error", text: error });
+          }
         } else {
           if (onClose) onClose();
         }
@@ -131,25 +171,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <Briefcase className="w-6 h-6" />
           </div>
           <h2 className="text-2xl font-bold text-white tracking-tight">
-            Welcome to JobNotifier
+            JobNotifier
           </h2>
           <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-            Sign in to track tech & AI internships, customize real-time webhooks, and manage your applications.
+            Sign in or enter your name to explore live tech & AI internships, save preferences, and track applications.
           </p>
         </div>
-
-        {/* Missing Config Alert */}
-        {!isConfigured && (
-          <div className="p-3.5 rounded-2xl bg-amber-950/70 border border-amber-800/80 text-amber-300 text-xs mb-5 space-y-1">
-            <p className="font-bold flex items-center gap-1.5">
-              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>Supabase Not Connected in Vercel</span>
-            </p>
-            <p className="text-[11px] text-amber-200/80">
-              Add <code className="bg-amber-900/50 px-1 py-0.5 rounded text-amber-100">NEXT_PUBLIC_SUPABASE_URL</code> and <code className="bg-amber-900/50 px-1 py-0.5 rounded text-amber-100">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> in your Vercel Project Settings &rarr; Environment Variables, then Redeploy.
-            </p>
-          </div>
-        )}
 
         {/* Status Message */}
         {message && (
@@ -169,56 +196,53 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         )}
 
-        {/* OAuth Providers */}
-        <div className="space-y-3 mb-5">
-          <button
-            onClick={() => handleOAuth("google")}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-semibold text-sm transition shadow-md disabled:opacity-50"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24">
-              <path
-                fill="#4285F4"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-              />
-            </svg>
-            <span>Continue with Google</span>
-          </button>
+        {/* Mode Selector / Main Form */}
+        {mode === "guest" ? (
+          /* Guest Name Entry Form */
+          <form onSubmit={handleGuestEntry} className="space-y-4">
+            <div className="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 space-y-1">
+              <p className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                <UserCheck className="w-4 h-4 text-indigo-400" />
+                <span>Continue as Guest</span>
+              </p>
+              <p className="text-[11px] text-slate-400">
+                Enter your name so we can personalize your dashboard experience.
+              </p>
+            </div>
 
-          <button
-            onClick={() => handleOAuth("github")}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm border border-slate-700 transition shadow-md disabled:opacity-50"
-          >
-            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-            </svg>
-            <span>Continue with GitHub</span>
-          </button>
-        </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                Your Name
+              </label>
+              <input
+                type="text"
+                required
+                autoFocus
+                value={guestNameInput}
+                onChange={(e) => setGuestNameInput(e.target.value)}
+                placeholder="e.g. Alex, Sam, Dhweya"
+                className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
 
-        <div className="relative flex py-2 items-center mb-4">
-          <div className="flex-grow border-t border-slate-800"></div>
-          <span className="flex-shrink mx-3 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
-            Or with email
-          </span>
-          <div className="flex-grow border-t border-slate-800"></div>
-        </div>
+            <button
+              type="submit"
+              disabled={loading || !guestNameInput.trim()}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 transition disabled:opacity-50 cursor-pointer"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+              <span>Enter Dashboard as Guest &rarr;</span>
+            </button>
 
-        {/* Email Magic Link or Password Form */}
-        {mode === "magic_link" ? (
+            <button
+              type="button"
+              onClick={() => setMode("oauth")}
+              className="w-full text-center text-xs text-slate-400 hover:text-indigo-300 pt-1 cursor-pointer"
+            >
+              &larr; Back to sign-in options
+            </button>
+          </form>
+        ) : mode === "magic_link" ? (
           <form onSubmit={handleMagicLink} className="space-y-3">
             <div>
               <label className="block text-[11px] font-semibold text-slate-300 mb-1">
@@ -254,7 +278,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               Use password instead
             </button>
           </form>
-        ) : (
+        ) : mode === "password" ? (
           <form onSubmit={handlePasswordAuth} className="space-y-3">
             <div>
               <label className="block text-[11px] font-semibold text-slate-300 mb-1">
@@ -317,6 +341,61 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </button>
             </div>
           </form>
+        ) : (
+          /* Default OAuth + Guest View */
+          <div className="space-y-3">
+            {/* Continue with Google */}
+            <button
+              onClick={() => handleOAuth("google")}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-semibold text-sm transition shadow-md disabled:opacity-50 cursor-pointer"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                />
+              </svg>
+              <span>Continue with Google</span>
+            </button>
+
+            {/* Continue as Guest Button */}
+            <button
+              onClick={() => setMode("guest")}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 font-semibold text-sm border border-indigo-500/40 transition shadow-md cursor-pointer"
+            >
+              <UserCheck className="w-4 h-4 text-indigo-400" />
+              <span>Continue as Guest (Enter Name)</span>
+            </button>
+
+            <div className="relative flex py-2 items-center">
+              <div className="flex-grow border-t border-slate-800"></div>
+              <span className="flex-shrink mx-3 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
+                Or with email
+              </span>
+              <div className="flex-grow border-t border-slate-800"></div>
+            </div>
+
+            <button
+              onClick={() => setMode("password")}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700/60 transition cursor-pointer"
+            >
+              <Mail className="w-4 h-4 text-slate-400" />
+              <span>Sign In with Email & Password</span>
+            </button>
+          </div>
         )}
       </div>
     </div>

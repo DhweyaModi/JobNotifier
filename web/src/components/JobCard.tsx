@@ -150,15 +150,14 @@ export const JobCard: React.FC<JobCardProps> = ({
   const exactScrapedTime = formatExactTime(job.scrapedAt, job.createdAt, job.postedTimestamp);
 
   const HIGH_TECH_COMPANIES = new Set([
-    "google", "meta", "apple", "amazon", "microsoft", "netflix", "nvidia",
-    "openai", "anthropic", "palantir", "databricks", "spacex", "tesla", "figma", "notion", "linear"
+    "google",
+    "microsoft",
   ]);
 
   const isHighTech =
     job.source === "Google" ||
-    job.source === "Amazon" ||
-    HIGH_TECH_COMPANIES.has(job.company.toLowerCase().trim()) ||
-    /\b(ai|ml|machine learning|deep learning|quant|trader|llm|robotics)\b/i.test(job.title);
+    job.source === "Microsoft" ||
+    HIGH_TECH_COMPANIES.has(job.company.toLowerCase().trim());
 
   return (
     <div className={`glass-card rounded-2xl p-5 flex flex-col justify-between relative group ${

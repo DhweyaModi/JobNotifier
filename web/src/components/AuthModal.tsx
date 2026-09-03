@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { Briefcase, Mail, Lock, Sparkles, AlertCircle, CheckCircle2, Loader2, ArrowRight, UserCheck } from "lucide-react";
+import { Mail, Lock, Sparkles, AlertCircle, CheckCircle2, Loader2, ArrowRight, UserCheck, KeyRound } from "lucide-react";
+import { AppLogo } from "@/components/AppLogo";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -167,9 +168,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Brand Header */}
         <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-indigo-600/30 text-white">
-            <Briefcase className="w-6 h-6" />
-          </div>
+          <AppLogo size="lg" className="mx-auto mb-3" />
           <h2 className="text-2xl font-bold text-white tracking-tight">
             JobNotifier
           </h2>

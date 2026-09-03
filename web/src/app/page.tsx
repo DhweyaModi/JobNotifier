@@ -7,7 +7,6 @@ import { StatsBanner } from "@/components/StatsBanner";
 import { FilterBar } from "@/components/FilterBar";
 import { JobCard } from "@/components/JobCard";
 import { ApplicationTracker } from "@/components/ApplicationTracker";
-import { WebhookSettingsModal } from "@/components/WebhookSettingsModal";
 import { SlackInviteToast } from "@/components/SlackInviteToast";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -18,7 +17,7 @@ export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"feed" | "tracker" | "settings">("feed");
+  const [activeTab, setActiveTab] = useState<"feed" | "tracker">("feed");
   const [showScrollTop, setShowScrollTop] = useState<boolean>(false);
 
   // Local & cloud synced bookmarks & application statuses
@@ -429,8 +428,6 @@ export default function Home() {
         {activeTab === "tracker" && (
           <ApplicationTracker jobs={jobs} onStatusChange={handleStatusChange} />
         )}
-
-        {activeTab === "settings" && <WebhookSettingsModal />}
       </main>
 
       {/* Footer */}

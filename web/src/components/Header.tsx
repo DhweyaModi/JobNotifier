@@ -1,15 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
-import { LayoutDashboard, CheckSquare, Settings, RefreshCw, LogOut, LogIn, UserCheck } from "lucide-react";
+import { LayoutDashboard, CheckSquare, RefreshCw, LogOut, LogIn, UserCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
 import { SlackCommunityModal } from "@/components/SlackCommunityModal";
 import { AppLogo } from "@/components/AppLogo";
 
 interface HeaderProps {
-  activeTab: "feed" | "tracker" | "settings";
-  setActiveTab: (tab: "feed" | "tracker" | "settings") => void;
+  activeTab: "feed" | "tracker";
+  setActiveTab: (tab: "feed" | "tracker") => void;
   totalJobs: number;
   trackedCount: number;
   onRefresh: () => void;
@@ -100,18 +100,6 @@ export const Header: React.FC<HeaderProps> = ({
                     {trackedCount}
                   </span>
                 )}
-              </button>
-
-              <button
-                onClick={() => setActiveTab("settings")}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition ${
-                  activeTab === "settings"
-                    ? "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/30"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-                }`}
-              >
-                <Settings className="w-4 h-4" />
-                <span className="hidden sm:inline">Webhooks</span>
               </button>
             </nav>
 

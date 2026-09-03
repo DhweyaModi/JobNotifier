@@ -17,7 +17,7 @@ export const SlackCommunityModal: React.FC<SlackCommunityModalProps> = ({
   // Use environment variable or fallback link
   const slackInviteUrl =
     process.env.NEXT_PUBLIC_SLACK_INVITE_URL ||
-    "https://join.slack.com/t/jobnotifier/shared_invite/";
+    "https://join.slack.com/t/job-notifier-group/shared_invite/zt-462dtvl76-u9J_OAjtfs0Q38oTXhKHjg";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">

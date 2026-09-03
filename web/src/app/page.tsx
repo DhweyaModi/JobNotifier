@@ -8,6 +8,7 @@ import { FilterBar } from "@/components/FilterBar";
 import { JobCard } from "@/components/JobCard";
 import { ApplicationTracker } from "@/components/ApplicationTracker";
 import { WebhookSettingsModal } from "@/components/WebhookSettingsModal";
+import { SlackInviteToast } from "@/components/SlackInviteToast";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { Loader2, AlertCircle, Briefcase, RefreshCw, ArrowUp } from "lucide-react";
@@ -436,6 +437,9 @@ export default function Home() {
       <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
         <p>JobNotifier Dashboard • Active Scrapers & Strict Country Filtering Enabled</p>
       </footer>
+
+      {/* Soft Slide-in Slack Community Toast (Appears 5s after sign-in) */}
+      <SlackInviteToast />
 
       {/* Floating Scroll to Top Button */}
       {showScrollTop && (

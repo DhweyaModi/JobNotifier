@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { Briefcase, LayoutDashboard, CheckSquare, Settings, RefreshCw, LogOut, LogIn, UserCheck } from "lucide-react";
+import { LayoutDashboard, CheckSquare, Settings, RefreshCw, LogOut, LogIn, UserCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
 import { SlackCommunityModal } from "@/components/SlackCommunityModal";
+import { AppLogo } from "@/components/AppLogo";
 
 interface HeaderProps {
   activeTab: "feed" | "tracker" | "settings";
@@ -42,13 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Brand & Status */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-500 text-white shadow-lg shadow-indigo-500/30">
-                <Briefcase className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                </span>
-              </div>
+              <AppLogo size="md" showLivePulse={true} />
               <div>
                 <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
                   JobNotifier <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-medium">v2.0</span>

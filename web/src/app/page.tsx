@@ -73,12 +73,18 @@ export default function Home() {
 
         if (appData && appData.length > 0) {
           const cloudStatuses: Record<string, ApplicationStatus> = {};
+          const cloudBookmarks: Record<string, boolean> = {};
           appData.forEach((row: any) => {
             if (row.job_id && row.status) {
-              cloudStatuses[row.job_id] = row.status.toUpperCase() as ApplicationStatus;
+              const upper = row.status.toUpperCase() as ApplicationStatus;
+              cloudStatuses[row.job_id] = upper;
+              if (upper === "SAVED") {
+                cloudBookmarks[row.job_id] = true;
+              }
             }
           });
           setApplicationStatuses((prev) => ({ ...prev, ...cloudStatuses }));
+          setBookmarks((prev) => ({ ...prev, ...cloudBookmarks }));
         }
 
         // 2. Load saved user filter preferences
@@ -126,11 +132,22 @@ export default function Home() {
 
   // Save bookmarks & statuses on update
   const handleToggleBookmark = (jobId: string) => {
+    const isNowBookmarked = !bookmarks[jobId];
+
     setBookmarks((prev) => {
-      const updated = { ...prev, [jobId]: !prev[jobId] };
+      const updated = { ...prev, [jobId]: isNowBookmarked };
       localStorage.setItem("jobnotifier_bookmarks", JSON.stringify(updated));
       return updated;
     });
+
+    if (isNowBookmarked) {
+      handleStatusChange(jobId, "SAVED");
+    } else {
+      const currentStatus = applicationStatuses[jobId] || "NONE";
+      if (currentStatus === "SAVED") {
+        handleStatusChange(jobId, "NONE");
+      }
+    }
   };
 
   const handleStatusChange = async (jobId: string, status: ApplicationStatus) => {
@@ -143,6 +160,21 @@ export default function Home() {
     setJobs((prevJobs) =>
       prevJobs.map((j) => (j.id === jobId ? { ...j, applicationStatus: status } : j))
     );
+
+    // Synchronize bookmark state
+    if (status === "SAVED") {
+      setBookmarks((prev) => {
+        const updated = { ...prev, [jobId]: true };
+        localStorage.setItem("jobnotifier_bookmarks", JSON.stringify(updated));
+        return updated;
+      });
+    } else if (status === "NONE") {
+      setBookmarks((prev) => {
+        const updated = { ...prev, [jobId]: false };
+        localStorage.setItem("jobnotifier_bookmarks", JSON.stringify(updated));
+        return updated;
+      });
+    }
 
     // Sync to Supabase if logged in
     if (supabase && user) {
@@ -180,10 +212,10 @@ export default function Home() {
       const data = await res.json();
       const rawJobs: Job[] = data.jobs || [];
 
-      // Merge localStorage statuses into job objects
+      // Merge localStorage statuses and bookmarks into job objects
       const mergedJobs = rawJobs.map((j) => ({
         ...j,
-        applicationStatus: applicationStatuses[j.id] || "NONE",
+        applicationStatus: applicationStatuses[j.id] || (bookmarks[j.id] ? "SAVED" : "NONE"),
       }));
 
       setJobs(mergedJobs);

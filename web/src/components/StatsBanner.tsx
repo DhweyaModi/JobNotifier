@@ -2,7 +2,6 @@
 
 import React from "react";
 import { Job } from "@/lib/types";
-import { Globe, MapPin, CheckCircle2, Zap } from "lucide-react";
 
 interface StatsBannerProps {
   jobs: Job[];
@@ -32,157 +31,153 @@ export const StatsBanner: React.FC<StatsBannerProps> = ({
   };
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      {/* Total Scraped Jobs */}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
+      {/* 1. All Jobs */}
       <button
         onClick={() => handleCardClick("all")}
-        className={`glass-card p-4 rounded-2xl relative overflow-hidden group text-left transition-all duration-200 cursor-pointer ${
+        className={`glass-panel glass-panel-hover p-6 rounded-2xl text-left transition-all cursor-pointer relative ${
           isAllSelected
-            ? "ring-2 ring-indigo-500/80 bg-indigo-950/30 shadow-lg shadow-indigo-950/50"
-            : "hover:border-slate-600 hover:-translate-y-0.5"
+            ? "border-2 border-[#5E6AD2] ring-2 ring-[#5E6AD2]/50 shadow-[0_0_30px_rgba(94,106,210,0.45)] bg-white/[0.08]"
+            : "border border-white/[0.06] hover:border-white/20"
         }`}
       >
-        <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition text-indigo-400">
-          <Zap className="w-16 h-16" />
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-mono font-semibold text-[#8A8F98] uppercase tracking-wider">
+            ALL JOBS
+          </span>
+          <span
+            className={`text-xs font-mono px-2 py-0.5 rounded-full font-bold transition ${
+              isAllSelected
+                ? "bg-[#5E6AD2] text-white shadow-sm"
+                : "text-[#8A8F98] bg-white/5"
+            }`}
+          >
+            {isAllSelected ? "ACTIVE" : "FILTER"}
+          </span>
         </div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1 flex items-center justify-between">
-          <span>All Jobs</span>
-          {isAllSelected && (
-            <span className="text-[10px] text-indigo-300 bg-indigo-900/60 px-1.5 py-0.5 rounded font-mono">
-              Active
-            </span>
-          )}
-        </p>
-        <div className="flex items-baseline gap-2">
-          <h3 className="text-2xl lg:text-3xl font-black text-white font-mono">
+        <div className="flex items-center gap-2.5 my-1">
+          <h3 className="font-display text-5xl font-bold text-white tracking-tight">
             {jobs.length}
           </h3>
-          <span className="text-xs text-emerald-400 font-medium">Live</span>
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-yellow-pulse" title="Live updating" />
         </div>
-        <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          <span>Click to show all listings</span>
+        <p className="text-sm text-[#8A8F98] mt-2 font-body">
+          Real-time opportunities feed
         </p>
       </button>
 
-      {/* Canada Channel Card */}
+      {/* 2. Canada Channel (Amber Accent) */}
       <button
         onClick={() => handleCardClick("canada")}
-        className={`glass-card p-4 rounded-2xl relative overflow-hidden group text-left border-l-4 border-l-red-500 transition-all duration-200 cursor-pointer ${
+        className={`glass-panel glass-panel-hover p-6 rounded-2xl text-left transition-all cursor-pointer relative ${
           isCanadaSelected
-            ? "ring-2 ring-red-500/90 bg-red-950/40 shadow-lg shadow-red-950/50"
-            : "hover:border-slate-600 hover:-translate-y-0.5"
+            ? "border-2 border-[#F7931A] ring-2 ring-[#F7931A]/50 shadow-[0_0_30px_rgba(247,147,26,0.45)] bg-white/[0.08]"
+            : "border border-white/[0.06] hover:border-white/20"
         }`}
       >
-        <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition text-red-400">
-          <MapPin className="w-16 h-16" />
-        </div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1 flex items-center justify-between">
-          <span className="flex items-center gap-1.5">
-            <span>Canada Channel</span>
-            <span>🇨🇦</span>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-mono font-semibold text-[#8A8F98] uppercase tracking-wider">
+            CANADA CHANNEL
           </span>
-          {isCanadaSelected ? (
-            <span className="text-[10px] font-bold text-red-200 bg-red-800/80 px-1.5 py-0.5 rounded shadow">
-              Filtered ✓
-            </span>
-          ) : (
-            <span className="text-[10px] text-slate-400 group-hover:text-red-300 transition">
-              Filter →
-            </span>
-          )}
-        </p>
-        <div className="flex items-baseline gap-2">
-          <h3 className="text-2xl lg:text-3xl font-black text-white font-mono">
+          <span
+            className={`text-xs font-mono px-2 py-0.5 rounded-full font-bold transition ${
+              isCanadaSelected
+                ? "bg-[#F7931A] text-black shadow-sm"
+                : "text-[#8A8F98] bg-white/5"
+            }`}
+          >
+            {isCanadaSelected ? "ACTIVE" : "FILTER"}
+          </span>
+        </div>
+        <div className="flex items-center gap-2.5 my-1">
+          <h3 className="font-display text-5xl font-bold text-white tracking-tight">
             {canadaCount}
           </h3>
-          <span className="text-xs text-red-300 bg-red-950/60 px-1.5 py-0.5 rounded border border-red-800/40">
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
             Strict Filter
           </span>
         </div>
-        <p className="text-xs text-slate-400 mt-2">
-          Toronto, BC, Waterloo & Remote CA
+        <p className="text-sm text-[#8A8F98] mt-2 font-body">
+          Toronto, BC, Waterloo & CA Remote
         </p>
       </button>
 
-      {/* USA Channel Card */}
+      {/* 3. USA Channel (Cyan Accent) */}
       <button
         onClick={() => handleCardClick("usa")}
-        className={`glass-card p-4 rounded-2xl relative overflow-hidden group text-left border-l-4 border-l-blue-500 transition-all duration-200 cursor-pointer ${
+        className={`glass-panel glass-panel-hover p-6 rounded-2xl text-left transition-all cursor-pointer relative ${
           isUsaSelected
-            ? "ring-2 ring-blue-500/90 bg-blue-950/40 shadow-lg shadow-blue-950/50"
-            : "hover:border-slate-600 hover:-translate-y-0.5"
+            ? "border-2 border-sky-400 ring-2 ring-sky-400/50 shadow-[0_0_30px_rgba(56,189,248,0.45)] bg-white/[0.08]"
+            : "border border-white/[0.06] hover:border-white/20"
         }`}
       >
-        <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition text-blue-400">
-          <MapPin className="w-16 h-16" />
-        </div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1 flex items-center justify-between">
-          <span className="flex items-center gap-1.5">
-            <span>USA Channel</span>
-            <span>🇺🇸</span>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-mono font-semibold text-[#8A8F98] uppercase tracking-wider">
+            USA CHANNEL
           </span>
-          {isUsaSelected ? (
-            <span className="text-[10px] font-bold text-blue-200 bg-blue-800/80 px-1.5 py-0.5 rounded shadow">
-              Filtered ✓
-            </span>
-          ) : (
-            <span className="text-[10px] text-slate-400 group-hover:text-blue-300 transition">
-              Filter →
-            </span>
-          )}
-        </p>
-        <div className="flex items-baseline gap-2">
-          <h3 className="text-2xl lg:text-3xl font-black text-white font-mono">
+          <span
+            className={`text-xs font-mono px-2 py-0.5 rounded-full font-bold transition ${
+              isUsaSelected
+                ? "bg-sky-400 text-black shadow-sm"
+                : "text-[#8A8F98] bg-white/5"
+            }`}
+          >
+            {isUsaSelected ? "ACTIVE" : "FILTER"}
+          </span>
+        </div>
+        <div className="flex items-center gap-2.5 my-1">
+          <h3 className="font-display text-5xl font-bold text-white tracking-tight">
             {usaCount}
           </h3>
-          <span className="text-xs text-blue-300 bg-blue-950/60 px-1.5 py-0.5 rounded border border-blue-800/40">
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30">
             Strict Filter
           </span>
         </div>
-        <p className="text-xs text-slate-400 mt-2">
-          SF, NYC, Seattle, Austin & Remote US
+        <p className="text-sm text-[#8A8F98] mt-2 font-body">
+          SF, NYC, Seattle & US Remote
         </p>
       </button>
 
-      {/* Cross-Border & Tracked Card */}
+      {/* 4. Cross-Border & Tracked */}
       <button
         onClick={() => handleCardClick("both")}
-        className={`glass-card p-4 rounded-2xl relative overflow-hidden group text-left border-l-4 border-l-indigo-500 transition-all duration-200 cursor-pointer ${
+        className={`glass-panel glass-panel-hover p-6 rounded-2xl text-left transition-all cursor-pointer relative ${
           isBothSelected
-            ? "ring-2 ring-cyan-500/90 bg-indigo-950/40 shadow-lg shadow-indigo-950/50"
-            : "hover:border-slate-600 hover:-translate-y-0.5"
+            ? "border-2 border-indigo-400 ring-2 ring-indigo-400/50 shadow-[0_0_30px_rgba(129,140,248,0.45)] bg-white/[0.08]"
+            : "border border-white/[0.06] hover:border-white/20"
         }`}
       >
-        <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition text-indigo-400">
-          <Globe className="w-16 h-16" />
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-mono font-semibold text-[#8A8F98] uppercase tracking-wider">
+            CROSS-BORDER & TRACKED
+          </span>
+          <span
+            className={`text-xs font-mono px-2 py-0.5 rounded-full font-bold transition ${
+              isBothSelected
+                ? "bg-indigo-400 text-white shadow-sm"
+                : "text-[#8A8F98] bg-white/5"
+            }`}
+          >
+            {isBothSelected ? "ACTIVE" : "FILTER"}
+          </span>
         </div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1 flex items-center justify-between">
-          <span>Cross-Border</span>
-          {isBothSelected ? (
-            <span className="text-[10px] font-bold text-cyan-200 bg-cyan-900/80 px-1.5 py-0.5 rounded shadow">
-              Filtered ✓
-            </span>
-          ) : (
-            <span className="text-[10px] text-slate-400 group-hover:text-cyan-300 transition">
-              Filter →
-            </span>
-          )}
-        </p>
-        <div className="flex items-baseline gap-3">
-          <div>
-            <span className="text-xs text-slate-400 block">Cross-Border</span>
-            <span className="text-xl font-bold text-cyan-400 font-mono">{bothCount}</span>
+        <div className="flex items-center gap-3 my-1">
+          <div className="flex items-baseline gap-1.5">
+            <h3 className="font-display text-5xl font-bold text-white tracking-tight">
+              {bothCount}
+            </h3>
+            <span className="text-xs font-mono text-[#8A8F98]">Dual</span>
           </div>
-          <div className="h-6 w-px bg-slate-800"></div>
-          <div>
-            <span className="text-xs text-slate-400 block">Tracked</span>
-            <span className="text-xl font-bold text-emerald-400 font-mono">{trackedCount}</span>
+          <div className="h-8 w-px bg-white/10" />
+          <div className="flex items-baseline gap-1.5">
+            <h3 className="font-display text-5xl font-bold text-white tracking-tight">
+              {trackedCount}
+            </h3>
+            <span className="text-xs font-mono text-[#8A8F98]">Tracked</span>
           </div>
         </div>
-        <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
-          <CheckCircle2 className="w-3 h-3 text-indigo-400" />
-          <span>🇨🇦🇺🇸 Dual eligible roles</span>
+        <p className="text-sm text-[#8A8F98] mt-2 font-body">
+          Eligible for US & CA applicants
         </p>
       </button>
     </div>

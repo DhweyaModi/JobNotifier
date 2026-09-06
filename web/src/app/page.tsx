@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Job, FilterState, ApplicationStatus } from "@/lib/types";
 import { Header } from "@/components/Header";
+import { LandingHero } from "@/components/LandingHero";
 import { StatsBanner } from "@/components/StatsBanner";
 import { FilterBar } from "@/components/FilterBar";
 import { JobCard } from "@/components/JobCard";
@@ -10,14 +11,17 @@ import { ApplicationTracker } from "@/components/ApplicationTracker";
 import { SlackInviteToast } from "@/components/SlackInviteToast";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { Loader2, AlertCircle, Briefcase, RefreshCw, ArrowUp } from "lucide-react";
+import { AlertCircle, Briefcase, RefreshCw, ArrowUp } from "lucide-react";
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, guestName } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"feed" | "tracker">("feed");
+  const [activeTab, setActiveTab] = useState<"home" | "feed" | "tracker">("home");
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [slackModalOpen, setSlackModalOpen] = useState(false);
+  const [userCount, setUserCount] = useState<number>(0);
   const [showScrollTop, setShowScrollTop] = useState<boolean>(false);
 
   // Local & cloud synced bookmarks & application statuses
@@ -58,6 +62,24 @@ export default function Home() {
     } catch (e) {
       console.warn("Could not access localStorage:", e);
     }
+  }, []);
+
+  // Fetch live community members count from Supabase
+  useEffect(() => {
+    async function fetchCommunityCount() {
+      if (!supabase) return;
+      try {
+        const { count, error } = await supabase
+          .from("users")
+          .select("*", { count: "exact", head: true });
+        if (!error && typeof count === "number" && count > 0) {
+          setUserCount(count);
+        }
+      } catch (e) {
+        console.warn("Could not fetch user count:", e);
+      }
+    }
+    fetchCommunityCount();
   }, []);
 
   // Sync user applications & saved filter preferences from Supabase when user signs in
@@ -332,7 +354,7 @@ export default function Home() {
   }, [jobs]);
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen text-[#EDEDEF] flex flex-col font-sans selection:bg-[#5E6AD2]/35 selection:text-white">
       {/* Navbar Header */}
       <Header
         activeTab={activeTab}
@@ -341,13 +363,34 @@ export default function Home() {
         trackedCount={trackedJobsCount}
         onRefresh={fetchJobs}
         isRefreshing={loading}
+        authModalOpen={authModalOpen}
+        setAuthModalOpen={setAuthModalOpen}
+        slackModalOpen={slackModalOpen}
+        setSlackModalOpen={setSlackModalOpen}
       />
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 pt-4 pb-12">
+        {activeTab === "home" && (
+          <LandingHero
+            jobs={jobs}
+            userCount={userCount}
+            onExploreFeed={() => {
+              setActiveTab("feed");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            onOpenSlack={() => setSlackModalOpen(true)}
+            onOpenAuth={() => setAuthModalOpen(true)}
+            onToggleBookmark={handleToggleBookmark}
+            bookmarks={bookmarks}
+            user={user}
+            guestName={guestName}
+          />
+        )}
+
         {activeTab === "feed" && (
           <>
-            {/* Stats Dashboard Banner */}
+            {/* Stats Dashboard Banner (28px gap to search bar) */}
             <StatsBanner
               jobs={jobs}
               trackedCount={trackedJobsCount}
@@ -366,41 +409,64 @@ export default function Home() {
               }
             />
 
-            {/* Filter Bar */}
+            {/* Filter Bar (20px gap to job grid) */}
             <FilterBar
               filters={filters}
               setFilters={setFilters}
               totalResults={filteredJobs.length}
             />
 
-            {/* Loading & Error States */}
+            {/* Loading Skeleton Cards (Glass Shimmer) */}
             {loading ? (
-              <div className="py-20 flex flex-col items-center justify-center text-slate-400">
-                <Loader2 className="w-10 h-10 animate-spin text-indigo-500 mb-3" />
-                <p className="text-sm font-medium text-slate-300">Fetching live scraped jobs & filtering...</p>
-                <p className="text-xs text-slate-500 mt-1">Running classification on Canada, USA, and cross-border listings</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 9 }).map((_, idx) => (
+                  <div
+                    key={idx}
+                    className="glass-panel rounded-2xl p-5 space-y-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl skeleton-shimmer" />
+                        <div className="space-y-1.5">
+                          <div className="w-28 h-4 rounded-lg skeleton-shimmer" />
+                          <div className="w-20 h-3 rounded-lg skeleton-shimmer" />
+                        </div>
+                      </div>
+                      <div className="w-8 h-8 rounded-full skeleton-shimmer" />
+                    </div>
+                    <div className="w-4/5 h-5 rounded-lg skeleton-shimmer" />
+                    <div className="flex justify-between items-center pt-2">
+                      <div className="w-32 h-3.5 rounded-lg skeleton-shimmer" />
+                      <div className="w-16 h-3.5 rounded-lg skeleton-shimmer" />
+                    </div>
+                    <div className="pt-3.5 border-t border-white/10 flex justify-between">
+                      <div className="w-24 h-8 rounded-full skeleton-shimmer" />
+                      <div className="w-20 h-8 rounded-full skeleton-shimmer" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : error ? (
-              <div className="glass-panel p-8 rounded-2xl text-center max-w-xl mx-auto border-red-500/40">
-                <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
-                <h3 className="text-lg font-bold text-white mb-1">Failed to load jobs</h3>
-                <p className="text-xs text-slate-400 mb-4">{error}</p>
+              <div className="glass-panel p-8 rounded-3xl text-center max-w-lg mx-auto border border-red-500/30">
+                <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-2.5" />
+                <h3 className="text-base font-display font-bold text-slate-100 mb-1">Failed to load listings</h3>
+                <p className="text-sm text-slate-400 mb-4">{error}</p>
                 <button
                   onClick={fetchJobs}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition inline-flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-full btn-purple-pill text-xs font-bold shadow-lg transition inline-flex items-center gap-1.5 cursor-pointer"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   Try Again
                 </button>
               </div>
             ) : filteredJobs.length === 0 ? (
-              <div className="glass-panel p-12 rounded-2xl text-center max-w-lg mx-auto space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
+              <div className="glass-panel p-12 rounded-3xl text-center max-w-md mx-auto space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-slate-400">
                   <Briefcase className="w-6 h-6" />
                 </div>
-                <h3 className="text-base font-bold text-white">No matching jobs found</h3>
-                <p className="text-xs text-slate-400">
-                  Try clearing your search query or selecting a different country or role filter.
+                <h3 className="text-base font-display font-bold text-slate-100">No matching opportunities found</h3>
+                <p className="text-sm text-slate-400">
+                  Try adjusting your search query or selecting different region or role filters.
                 </p>
                 <button
                   onClick={() =>
@@ -413,14 +479,14 @@ export default function Home() {
                       sortBy: "newest",
                     })
                   }
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-semibold transition cursor-pointer"
+                  className="px-5 py-2.5 rounded-full bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white text-xs font-semibold border border-white/15 transition cursor-pointer"
                 >
                   Reset All Filters
                 </button>
               </div>
             ) : (
               <>
-                {/* Job Cards Grid */}
+                {/* Job Cards Grid: 3 columns desktop, 2 tablet, 1 mobile, gap 16px (gap-4) */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredJobs.slice(0, visibleCount).map((job) => (
                     <JobCard
@@ -446,7 +512,7 @@ export default function Home() {
                   <div className="text-center py-8">
                     <button
                       onClick={() => setVisibleCount((prev) => prev + 48)}
-                      className="px-6 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-indigo-500/40 text-slate-200 text-sm font-semibold transition shadow-lg cursor-pointer"
+                      className="px-7 py-3 rounded-full glass-panel glass-panel-hover font-display font-bold text-slate-200 hover:text-white text-sm transition cursor-pointer"
                     >
                       Load More Listings ({filteredJobs.length - visibleCount} remaining)
                     </button>
@@ -463,8 +529,8 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
-        <p>JobNotifier Dashboard • Active Scrapers & Strict Country Filtering Enabled</p>
+      <footer className="border-t border-white/10 py-6 text-center text-xs text-slate-500 font-mono">
+        <p>JobNotifier • Live Tech & AI Internship Tracker</p>
       </footer>
 
       {/* Soft Slide-in Slack Community Toast (Appears 5s after sign-in) */}
@@ -475,9 +541,9 @@ export default function Home() {
         <button
           onClick={scrollToTop}
           title="Scroll to top"
-          className="fixed bottom-6 right-6 z-50 p-3.5 rounded-2xl bg-indigo-600/90 hover:bg-indigo-500 text-white shadow-xl shadow-indigo-600/40 border border-indigo-400/30 backdrop-blur-md transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 active:scale-95 flex items-center justify-center group cursor-pointer"
+          className="fixed bottom-6 right-6 z-50 p-3.5 rounded-full bg-[#0B1120]/90 hover:bg-[#0B1120] text-slate-300 hover:text-amber-400 border border-white/15 hover:border-amber-500/50 shadow-2xl backdrop-blur-xl transition-all cursor-pointer"
         >
-          <ArrowUp className="w-5 h-5 group-hover:-translate-y-0.5 transition-transform duration-200" />
+          <ArrowUp className="w-5 h-5" />
         </button>
       )}
     </div>

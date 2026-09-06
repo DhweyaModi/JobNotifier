@@ -8,12 +8,16 @@ import { SlackCommunityModal } from "@/components/SlackCommunityModal";
 import { AppLogo } from "@/components/AppLogo";
 
 interface HeaderProps {
-  activeTab: "feed" | "tracker";
-  setActiveTab: (tab: "feed" | "tracker") => void;
+  activeTab: "home" | "feed" | "tracker";
+  setActiveTab: (tab: "home" | "feed" | "tracker") => void;
   totalJobs: number;
   trackedCount: number;
   onRefresh: () => void;
   isRefreshing: boolean;
+  authModalOpen?: boolean;
+  setAuthModalOpen?: (open: boolean) => void;
+  slackModalOpen?: boolean;
+  setSlackModalOpen?: (open: boolean) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -23,11 +27,21 @@ export const Header: React.FC<HeaderProps> = ({
   trackedCount,
   onRefresh,
   isRefreshing,
+  authModalOpen: externalAuthModalOpen,
+  setAuthModalOpen: setExternalAuthModalOpen,
+  slackModalOpen: externalSlackModalOpen,
+  setSlackModalOpen: setExternalSlackModalOpen,
 }) => {
   const { user, guestName, signOut, loading: authLoading } = useAuth();
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [slackModalOpen, setSlackModalOpen] = useState(false);
+  const [internalAuthModalOpen, setInternalAuthModalOpen] = useState(false);
+  const [internalSlackModalOpen, setInternalSlackModalOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+
+  const authModalOpen = externalAuthModalOpen !== undefined ? externalAuthModalOpen : internalAuthModalOpen;
+  const setAuthModalOpen = setExternalAuthModalOpen || setInternalAuthModalOpen;
+
+  const slackModalOpen = externalSlackModalOpen !== undefined ? externalSlackModalOpen : internalSlackModalOpen;
+  const setSlackModalOpen = setExternalSlackModalOpen || setInternalSlackModalOpen;
 
   const userEmail = user?.email || "";
   const userName =
@@ -38,48 +52,66 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-40 glass-panel border-b border-slate-800 px-4 lg:px-8 py-3.5">
+      <header className="sticky top-0 z-40 bg-[#050506]/85 backdrop-blur-xl border-b border-white/[0.06] px-4 lg:px-8 py-3.5">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          {/* Brand & Status */}
+          {/* Brand */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <AppLogo size="md" showLivePulse={true} />
+            <button
+              onClick={() => setActiveTab("home")}
+              className="flex items-center gap-3 text-left cursor-pointer group"
+            >
+              <AppLogo size="md" showLivePulse={false} />
               <div>
-                <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                  JobNotifier <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-medium">v2.0</span>
-                </h1>
-                <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <div className="flex items-center gap-2">
+                  <h1 className="font-heading text-xl font-bold tracking-tight text-[#EDEDEF] group-hover:text-[#FFD600] transition">
+                    JobNotifier
+                  </h1>
+                  <span className="w-2 h-2 rounded-full bg-[#F7931A] animate-yellow-pulse" title="Live sync" />
+                </div>
+                <p className="text-xs font-mono text-[#8A8F98] tracking-wide">
                   Live Tech & AI Internships
                 </p>
               </div>
-            </div>
+            </button>
 
+            {/* Mobile Sync */}
             <button
               onClick={onRefresh}
               disabled={isRefreshing}
-              className="md:hidden flex items-center justify-center p-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition disabled:opacity-50"
+              className="md:hidden flex items-center justify-center p-2.5 rounded-full bg-white/5 border border-white/[0.08] text-sky-400 hover:text-white transition disabled:opacity-50"
               title="Refresh jobs"
             >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-indigo-400" : ""}`} />
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-sky-400" : ""}`} />
             </button>
           </div>
 
-          {/* Tab Navigation & Controls */}
-          <div className="flex items-center justify-between md:justify-end gap-3">
-            <nav className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+          {/* Navigation & Actions */}
+          <div className="flex items-center justify-between md:justify-end gap-3 sm:gap-4">
+            {/* Tabs */}
+            <nav className="flex items-center gap-1 bg-[#0a0a0c]/90 p-1.5 rounded-full border border-white/[0.06] backdrop-blur-md">
               <button
-                onClick={() => setActiveTab("feed")}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition ${
-                  activeTab === "feed"
-                    ? "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/30"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+                onClick={() => setActiveTab("home")}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium transition cursor-pointer ${
+                  activeTab === "home"
+                    ? "bg-white/[0.08] text-[#EDEDEF] shadow-inner border border-white/10"
+                    : "text-[#8A8F98] hover:text-[#EDEDEF]"
                 }`}
               >
-                <LayoutDashboard className="w-4 h-4" />
-                <span>Job Feed</span>
+                <span>Overview</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("feed")}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium transition cursor-pointer ${
+                  activeTab === "feed"
+                    ? "bg-white/[0.08] text-[#EDEDEF] shadow-inner border border-white/10"
+                    : "text-[#8A8F98] hover:text-[#EDEDEF]"
+                }`}
+              >
+                <LayoutDashboard className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Live Scraper</span>
                 {totalJobs > 0 && (
-                  <span className="ml-1 text-xs px-1.5 py-0.2 bg-indigo-950 text-indigo-300 rounded-full font-mono">
+                  <span className="ml-0.5 text-xs font-mono font-bold px-2 py-0.5 bg-[#5E6AD2] text-white rounded-full shadow-[0_0_12px_rgba(94,106,210,0.45)]">
                     {totalJobs}
                   </span>
                 )}
@@ -87,75 +119,80 @@ export const Header: React.FC<HeaderProps> = ({
 
               <button
                 onClick={() => setActiveTab("tracker")}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium transition cursor-pointer ${
                   activeTab === "tracker"
-                    ? "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/30"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+                    ? "bg-white/[0.08] text-[#EDEDEF] shadow-inner border border-white/10"
+                    : "text-[#8A8F98] hover:text-[#EDEDEF]"
                 }`}
               >
-                <CheckSquare className="w-4 h-4" />
-                <span>Applications</span>
+                <CheckSquare className="w-3.5 h-3.5 text-sky-400" />
+                <span className="hidden sm:inline">Applications</span>
+                <span className="sm:hidden">Saved</span>
                 {trackedCount > 0 && (
-                  <span className="ml-1 text-xs px-1.5 py-0.2 bg-emerald-950 text-emerald-300 rounded-full font-mono">
+                  <span className="ml-0.5 text-xs font-mono font-bold px-2 py-0.5 bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-full">
                     {trackedCount}
                   </span>
                 )}
               </button>
             </nav>
 
-            {/* Join Slack Community Button */}
+            {/* Join Slack Button (Gold Pill CTA) */}
             <button
               onClick={() => setSlackModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-purple-950 to-indigo-950 hover:from-purple-900 hover:to-indigo-900 text-purple-200 border border-purple-500/40 text-xs font-bold transition shadow-md shadow-purple-950/40 cursor-pointer"
+              className="btn-gold-pill px-4 sm:px-5 py-2 text-xs sm:text-sm cursor-pointer shrink-0 font-bold"
             >
-              <span className="text-sm">💬</span>
-              <span className="hidden sm:inline">Join Slack</span>
+              Join Slack
             </button>
 
-            <button
-              onClick={onRefresh}
-              disabled={isRefreshing}
-              className="hidden md:flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-sm font-medium border border-slate-700/60 hover:border-slate-600 transition disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-indigo-400" : ""}`} />
-              <span>Sync</span>
-            </button>
-
-            {/* User Auth Profile / Guest Indicator / Sign In */}
+            {/* Avatar Button */}
             {user ? (
               <div className="relative">
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center gap-2.5 p-1.5 pr-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/40 transition cursor-pointer"
+                  className="flex items-center gap-2.5 p-1.5 pr-3.5 rounded-full bg-white/5 border border-white/10 hover:border-amber-500/40 transition cursor-pointer"
                 >
                   {userAvatar ? (
                     <img
                       src={userAvatar}
                       alt={userName}
-                      className="w-7 h-7 rounded-lg object-cover border border-indigo-500/30"
+                      className="w-7 h-7 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="w-7 h-7 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-300 text-xs font-bold">
+                    <div className="w-7 h-7 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-300 text-xs font-bold font-display">
                       {userName.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <span className="text-xs font-semibold text-slate-200 max-w-[100px] truncate hidden sm:inline">
+                  <span className="text-sm font-medium text-slate-200 max-w-[110px] truncate hidden sm:inline">
                     {userName}
                   </span>
                 </button>
 
                 {userDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2">
-                    <div className="px-3 py-2 border-b border-slate-800">
-                      <p className="text-xs font-bold text-white truncate">{userName}</p>
-                      <p className="text-[11px] text-slate-400 truncate">{userEmail}</p>
+                  <div className="absolute right-0 mt-2 w-56 bg-[#0B1120]/95 border border-white/15 rounded-2xl shadow-2xl p-2 z-50 backdrop-blur-2xl animate-in fade-in duration-150">
+                    <div className="px-3 py-2 border-b border-white/10">
+                      <p className="text-xs font-bold text-white truncate font-display">{userName}</p>
+                      <p className="text-xs text-slate-400 truncate font-mono">{userEmail}</p>
                     </div>
+
+                    {/* Sync Option in Blue */}
+                    <button
+                      onClick={() => {
+                        onRefresh();
+                        setUserDropdownOpen(false);
+                      }}
+                      disabled={isRefreshing}
+                      className="w-full mt-1 flex items-center gap-2 px-3 py-2 text-xs font-medium text-sky-400 hover:bg-sky-500/10 rounded-xl transition cursor-pointer font-mono"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-sky-400" : ""}`} />
+                      <span>Sync Latest Listings</span>
+                    </button>
+
                     <button
                       onClick={() => {
                         signOut();
                         setUserDropdownOpen(false);
                       }}
-                      className="w-full mt-1 flex items-center gap-2 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-950/40 rounded-xl transition cursor-pointer"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-rose-400 hover:bg-rose-500/10 rounded-xl transition cursor-pointer font-mono"
                     >
                       <LogOut className="w-3.5 h-3.5" />
                       <span>Sign Out</span>
@@ -167,26 +204,40 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="relative">
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-950/50 border border-indigo-500/30 hover:border-indigo-500/60 transition cursor-pointer"
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-white/5 border border-white/10 hover:border-amber-500/40 transition cursor-pointer"
                 >
-                  <UserCheck className="w-4 h-4 text-indigo-400" />
-                  <span className="text-xs font-semibold text-indigo-200 max-w-[100px] truncate">
+                  <UserCheck className="w-4 h-4 text-amber-400" />
+                  <span className="text-sm font-medium text-slate-200 max-w-[110px] truncate">
                     {guestName}
                   </span>
                 </button>
 
                 {userDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-52 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2">
-                    <div className="px-3 py-2 border-b border-slate-800">
-                      <p className="text-xs font-bold text-white truncate">{guestName}</p>
-                      <p className="text-[10px] text-indigo-400 font-semibold">Guest Visitor</p>
+                  <div className="absolute right-0 mt-2 w-52 bg-[#0B1120]/95 border border-white/15 rounded-2xl shadow-2xl p-2 z-50 backdrop-blur-2xl animate-in fade-in duration-150">
+                    <div className="px-3 py-2 border-b border-white/10">
+                      <p className="text-xs font-bold text-white truncate font-display">{guestName}</p>
+                      <p className="text-xs text-slate-400 font-mono">Guest Visitor</p>
                     </div>
+
+                    {/* Sync Option in Blue */}
+                    <button
+                      onClick={() => {
+                        onRefresh();
+                        setUserDropdownOpen(false);
+                      }}
+                      disabled={isRefreshing}
+                      className="w-full mt-1 flex items-center gap-2 px-3 py-2 text-xs font-medium text-sky-400 hover:bg-sky-500/10 rounded-xl transition cursor-pointer font-mono"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-sky-400" : ""}`} />
+                      <span>Sync Latest Listings</span>
+                    </button>
+
                     <button
                       onClick={() => {
                         setAuthModalOpen(true);
                         setUserDropdownOpen(false);
                       }}
-                      className="w-full mt-1 flex items-center gap-2 px-3 py-2 text-xs font-medium text-indigo-300 hover:bg-indigo-950/40 rounded-xl transition cursor-pointer"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-amber-300 hover:bg-amber-500/10 rounded-xl transition cursor-pointer font-mono"
                     >
                       <LogIn className="w-3.5 h-3.5" />
                       <span>Sign In / Switch</span>
@@ -196,7 +247,7 @@ export const Header: React.FC<HeaderProps> = ({
                         signOut();
                         setUserDropdownOpen(false);
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-950/40 rounded-xl transition cursor-pointer"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-rose-400 hover:bg-rose-500/10 rounded-xl transition cursor-pointer font-mono"
                     >
                       <LogOut className="w-3.5 h-3.5" />
                       <span>Clear Guest</span>
@@ -207,9 +258,9 @@ export const Header: React.FC<HeaderProps> = ({
             ) : (
               <button
                 onClick={() => setAuthModalOpen(true)}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:border-amber-500/40 text-slate-200 text-sm font-semibold transition cursor-pointer"
               >
-                <LogIn className="w-3.5 h-3.5" />
+                <LogIn className="w-4 h-4 text-amber-400" />
                 <span>Sign In</span>
               </button>
             )}

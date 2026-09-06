@@ -2,12 +2,21 @@
 
 import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { Mail, Lock, Sparkles, AlertCircle, CheckCircle2, Loader2, ArrowRight, UserCheck, KeyRound } from "lucide-react";
+import {
+  X,
+  Mail,
+  Lock,
+  ArrowRight,
+  Sparkles,
+  Loader2,
+  AlertCircle,
+  UserCheck,
+} from "lucide-react";
 import { AppLogo } from "@/components/AppLogo";
 
 interface AuthModalProps {
   isOpen: boolean;
-  onClose?: () => void;
+  onClose: () => void;
   isMandatory?: boolean;
 }
 
@@ -16,91 +25,60 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   isMandatory = false,
 }) => {
-  const {
-    signInWithOAuth,
-    signInWithOtp,
-    signInWithPassword,
-    signUpWithPassword,
-    continueAsGuest,
-    isConfigured,
-  } = useAuth();
-
-  const [mode, setMode] = useState<"oauth" | "magic_link" | "password" | "guest">("oauth");
-  const [isSignUp, setIsSignUp] = useState<boolean>(false);
-  const [email, setEmail] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [guestNameInput, setGuestNameInput] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(false);
-  const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const { signInWithOAuth, signInWithOtp, signInWithPassword, signUpWithPassword, resetPasswordForEmail, continueAsGuest } =
+    useAuth();
+  const [mode, setMode] = useState<"oauth" | "magic_link" | "password" | "guest" | "forgot_password">("oauth");
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [guestInputName, setGuestInputName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleGuestEntry = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!guestNameInput.trim()) {
-      setMessage({ type: "error", text: "Please enter your name to continue as guest." });
-      return;
-    }
-    setLoading(true);
-    try {
-      await continueAsGuest(guestNameInput.trim());
-      if (onClose) onClose();
-    } catch (err: any) {
-      setMessage({ type: "error", text: err?.message || "Failed to continue as guest." });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleOAuth = async (provider: "google") => {
     setLoading(true);
-    setMessage(null);
+    setError(null);
     try {
       const { error } = await signInWithOAuth(provider);
-      if (error) {
-        if (error.toLowerCase().includes("not enabled") || error.toLowerCase().includes("unsupported provider")) {
-          setMessage({
-            type: "error",
-            text: "Google OAuth is not enabled in your Supabase dashboard yet. Use Email sign-in or Continue as Guest below.",
-          });
-        } else {
-          setMessage({ type: "error", text: error });
-        }
-      }
+      if (error) throw new Error(error);
     } catch (err: any) {
-      setMessage({ type: "error", text: err?.message || "Failed to initiate sign-in." });
-    } finally {
+      setError(err?.message || "Failed to sign in with OAuth provider.");
       setLoading(false);
     }
   };
 
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) {
-      setMessage({ type: "error", text: "Please enter your email address." });
-      return;
-    }
+    if (!email) return;
     setLoading(true);
+    setError(null);
     setMessage(null);
     try {
       const { error } = await signInWithOtp(email);
-      if (error) {
-        if (error.toLowerCase().includes("security") || error.toLowerCase().includes("rate limit") || error.toLowerCase().includes("after")) {
-          setMessage({
-            type: "error",
-            text: `For security purposes, you can only request this after 44 seconds. Please wait before requesting another magic link, or check your spam/inbox.`,
-          });
-        } else {
-          setMessage({ type: "error", text: error });
-        }
-      } else {
-        setMessage({
-          type: "success",
-          text: `Check your inbox! We've sent a magic sign-in link to ${email}.`,
-        });
-      }
+      if (error) throw error;
+      setMessage("A magic sign-in link has been dispatched to your email!");
     } catch (err: any) {
-      setMessage({ type: "error", text: err?.message || "Failed to send magic link." });
+      setError(err?.message || "Failed to send magic link.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const { error } = await resetPasswordForEmail(email);
+      if (error) throw error;
+      setMessage("Password reset instructions have been dispatched to your email!");
+    } catch (err: any) {
+      setError(err?.message || "Failed to send password reset email.");
     } finally {
       setLoading(false);
     }
@@ -108,143 +86,162 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handlePasswordAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      setMessage({ type: "error", text: "Please provide both email and password." });
-      return;
-    }
+    if (!email || !password) return;
     setLoading(true);
-    setMessage(null);
+    setError(null);
     try {
       if (isSignUp) {
         const { error } = await signUpWithPassword(email, password);
-        if (error) {
-          if (error.toLowerCase().includes("already registered") || error.toLowerCase().includes("user already")) {
-            setMessage({
-              type: "error",
-              text: "An account with this email already exists. Sign in or click 'Send magic link' below.",
-            });
-          } else {
-            setMessage({ type: "error", text: error });
-          }
-        } else {
-          setMessage({
-            type: "success",
-            text: "Account created! You can now sign in with your email and password.",
-          });
-        }
+        if (error) throw error;
+        setMessage("Account created! Please check your email to verify your address.");
       } else {
         const { error } = await signInWithPassword(email, password);
-        if (error) {
-          if (error.toLowerCase().includes("email not confirmed") || error.toLowerCase().includes("not confirmed")) {
-            setMessage({
-              type: "error",
-              text: "Email not confirmed. Please click 'Send magic link' below to sign in directly without a password, or check your inbox.",
-            });
-          } else {
-            setMessage({ type: "error", text: error });
-          }
-        } else {
-          if (onClose) onClose();
-        }
+        if (error) throw error;
+        onClose();
       }
     } catch (err: any) {
-      setMessage({ type: "error", text: err?.message || "Authentication error." });
+      setError(err?.message || "Authentication failed. Please verify credentials.");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleGuestSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!guestInputName.trim()) return;
+    await continueAsGuest(guestInputName.trim());
+    onClose();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md bg-slate-900/95 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-indigo-500/10">
-        {!isMandatory && onClose && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
+      <div
+        className="relative w-full max-w-md bg-[#0B1120]/95 rounded-3xl p-6 sm:p-7 border border-white/15 shadow-2xl shadow-black/80 space-y-5 backdrop-blur-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Dismiss Button */}
+        {!isMandatory && (
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition"
+            className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition cursor-pointer"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         )}
 
-        {/* Brand Header */}
-        <div className="text-center mb-6">
-          <AppLogo size="lg" className="mx-auto mb-3" />
-          <h2 className="text-2xl font-bold text-white tracking-tight">
-            JobNotifier
+        {/* Modal Header */}
+        <div className="text-center space-y-1.5 pt-1">
+          <div className="flex justify-center mb-1">
+            <AppLogo size="lg" className="mx-auto" />
+          </div>
+          <h2 className="text-xl font-display font-bold text-slate-100 tracking-tight">
+            {mode === "guest"
+              ? "Continue as Guest"
+              : mode === "forgot_password"
+              ? "Reset Password"
+              : isSignUp
+              ? "Create Your Account"
+              : "Welcome to JobNotifier"}
           </h2>
-          <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-            Sign in or enter your name to explore live tech & AI internships, save preferences, and track applications.
+          <p className="text-sm text-slate-400 max-w-xs mx-auto">
+            {mode === "guest"
+              ? "Enter your name to track applications during your visit."
+              : mode === "forgot_password"
+              ? "Enter your email address to receive password reset instructions."
+              : "Track tech & AI internships across Canada and USA in real-time."}
           </p>
         </div>
 
-        {/* Status Message */}
+        {/* Alerts */}
+        {error && (
+          <div className="p-3.5 rounded-xl bg-red-950/40 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
         {message && (
-          <div
-            className={`p-3.5 rounded-2xl text-xs font-medium mb-5 flex items-start gap-2 border ${
-              message.type === "success"
-                ? "bg-emerald-950/70 border-emerald-800/80 text-emerald-300"
-                : "bg-red-950/70 border-red-800/80 text-red-300"
-            }`}
-          >
-            {message.type === "success" ? (
-              <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-            )}
-            <span>{message.text}</span>
+          <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+            <Sparkles className="w-4 h-4 shrink-0" />
+            <span>{message}</span>
           </div>
         )}
 
-        {/* Mode Selector / Main Form */}
+        {/* Modes */}
         {mode === "guest" ? (
-          /* Guest Name Entry Form */
-          <form onSubmit={handleGuestEntry} className="space-y-4">
-            <div className="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 space-y-1">
-              <p className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-                <UserCheck className="w-4 h-4 text-indigo-400" />
-                <span>Continue as Guest</span>
-              </p>
-              <p className="text-[11px] text-slate-400">
-                Enter your name so we can personalize your dashboard experience.
-              </p>
-            </div>
-
+          <form onSubmit={handleGuestSubmit} className="space-y-3.5">
             <div>
-              <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+              <label className="block text-xs font-mono font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">
                 Your Name
               </label>
               <input
                 type="text"
                 required
                 autoFocus
-                value={guestNameInput}
-                onChange={(e) => setGuestNameInput(e.target.value)}
-                placeholder="e.g. Alex, Sam, Dhweya"
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                value={guestInputName}
+                onChange={(e) => setGuestInputName(e.target.value)}
+                placeholder="e.g. Alex Chen"
+                className="w-full bg-[#050814]/80 border border-white/10 focus:border-[#4F46E5] focus:ring-1 focus:ring-[#4F46E5]/40 text-slate-100 placeholder:text-slate-500 px-3.5 py-2.5 rounded-xl text-sm outline-none transition"
               />
             </div>
 
             <button
               type="submit"
-              disabled={loading || !guestNameInput.trim()}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 transition disabled:opacity-50 cursor-pointer"
+              disabled={!guestInputName.trim()}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-full btn-purple-pill text-sm disabled:opacity-50 cursor-pointer"
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-              <span>Enter Dashboard as Guest &rarr;</span>
+              <span>Enter as Guest</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
 
             <button
               type="button"
               onClick={() => setMode("oauth")}
-              className="w-full text-center text-xs text-slate-400 hover:text-indigo-300 pt-1 cursor-pointer"
+              className="w-full text-center text-xs text-slate-400 hover:text-indigo-400 pt-1 cursor-pointer font-medium transition"
             >
               &larr; Back to sign-in options
             </button>
           </form>
-        ) : mode === "magic_link" ? (
-          <form onSubmit={handleMagicLink} className="space-y-3">
+        ) : mode === "forgot_password" ? (
+          <form onSubmit={handleForgotPassword} className="space-y-3.5">
             <div>
-              <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+              <label className="block text-xs font-mono font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                <input
+                  type="email"
+                  required
+                  autoFocus
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  className="w-full bg-[#050814]/80 border border-white/10 focus:border-[#4F46E5] focus:ring-1 focus:ring-[#4F46E5]/40 text-slate-100 placeholder:text-slate-500 pl-10 pr-3.5 py-2.5 rounded-xl text-sm outline-none transition"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || !email}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-full btn-purple-pill text-sm disabled:opacity-50 cursor-pointer"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              <span>Send Reset Instructions</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMode("password")}
+              className="w-full text-center text-xs text-slate-400 hover:text-indigo-400 pt-1 cursor-pointer font-medium transition"
+            >
+              &larr; Back to password sign-in
+            </button>
+          </form>
+        ) : mode === "magic_link" ? (
+          <form onSubmit={handleMagicLink} className="space-y-3.5">
+            <div>
+              <label className="block text-xs font-mono font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">
                 Email Address
               </label>
               <div className="relative">
@@ -255,7 +252,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-[#050814]/80 border border-white/10 focus:border-[#4F46E5] focus:ring-1 focus:ring-[#4F46E5]/40 text-slate-100 placeholder:text-slate-500 pl-10 pr-3.5 py-2.5 rounded-xl text-sm outline-none transition"
                 />
               </div>
             </div>
@@ -263,7 +260,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 transition disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-full btn-purple-pill text-sm disabled:opacity-50 cursor-pointer"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
               <span>Send Magic Sign-In Link</span>
@@ -272,15 +269,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <button
               type="button"
               onClick={() => setMode("password")}
-              className="w-full text-center text-xs text-slate-400 hover:text-indigo-300 pt-1"
+              className="w-full text-center text-xs text-slate-400 hover:text-indigo-400 pt-1 cursor-pointer font-medium transition"
             >
               Use password instead
             </button>
           </form>
         ) : mode === "password" ? (
-          <form onSubmit={handlePasswordAuth} className="space-y-3">
+          <form onSubmit={handlePasswordAuth} className="space-y-3.5">
             <div>
-              <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+              <label className="block text-xs font-mono font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">
                 Email Address
               </label>
               <div className="relative">
@@ -291,15 +288,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-[#050814]/80 border border-white/10 focus:border-[#4F46E5] focus:ring-1 focus:ring-[#4F46E5]/40 text-slate-100 placeholder:text-slate-500 pl-10 pr-3.5 py-2.5 rounded-xl text-sm outline-none transition"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-mono font-semibold text-slate-300 uppercase tracking-wider">
+                  Password
+                </label>
+                {!isSignUp && (
+                  <button
+                    type="button"
+                    onClick={() => setMode("forgot_password")}
+                    className="text-xs text-slate-400 hover:text-indigo-400 cursor-pointer transition"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                 <input
@@ -308,7 +316,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-[#050814]/80 border border-white/10 focus:border-[#4F46E5] focus:ring-1 focus:ring-[#4F46E5]/40 text-slate-100 placeholder:text-slate-500 pl-10 pr-3.5 py-2.5 rounded-xl text-sm outline-none transition"
                 />
               </div>
             </div>
@@ -316,7 +324,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 transition disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-full btn-purple-pill text-sm disabled:opacity-50 cursor-pointer"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
               <span>{isSignUp ? "Create Account" : "Sign In"}</span>
@@ -326,7 +334,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="button"
                 onClick={() => setMode("magic_link")}
-                className="hover:text-indigo-300"
+                className="hover:text-indigo-400 cursor-pointer font-medium transition"
               >
                 Send magic link
               </button>
@@ -334,20 +342,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="button"
                 onClick={() => setIsSignUp(!isSignUp)}
-                className="text-indigo-400 hover:text-indigo-300 font-semibold"
+                className="text-indigo-400 hover:text-indigo-300 hover:underline font-semibold cursor-pointer transition"
               >
-                {isSignUp ? "Already have an account? Sign in" : "Need an account? Sign up"}
+                {isSignUp ? "Have an account? Sign in" : "Need an account? Sign up"}
               </button>
             </div>
           </form>
         ) : (
-          /* Default OAuth + Guest View */
-          <div className="space-y-3">
-            {/* Continue with Google */}
+          /* Default OAuth View */
+          <div className="space-y-3.5">
             <button
               onClick={() => handleOAuth("google")}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-semibold text-sm transition shadow-md disabled:opacity-50 cursor-pointer"
+              className="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-full bg-white hover:bg-slate-100 text-[#050814] font-bold text-sm transition shadow-lg disabled:opacity-50 cursor-pointer"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path
@@ -370,26 +377,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <span>Continue with Google</span>
             </button>
 
-            {/* Continue as Guest Button */}
             <button
               onClick={() => setMode("guest")}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 font-semibold text-sm border border-indigo-500/40 transition shadow-md cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-full bg-white/5 hover:bg-white/10 text-slate-200 font-semibold text-sm border border-white/10 transition cursor-pointer"
             >
-              <UserCheck className="w-4 h-4 text-indigo-400" />
-              <span>Continue as Guest (Enter Name)</span>
+              <UserCheck className="w-4 h-4 text-amber-400" />
+              <span>Continue as Guest</span>
             </button>
 
-            <div className="relative flex py-2 items-center">
-              <div className="flex-grow border-t border-slate-800"></div>
-              <span className="flex-shrink mx-3 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-white/10"></div>
+              <span className="flex-shrink mx-3 text-[11px] font-mono uppercase tracking-wider text-slate-400">
                 Or with email
               </span>
-              <div className="flex-grow border-t border-slate-800"></div>
+              <div className="flex-grow border-t border-white/10"></div>
             </div>
 
             <button
               onClick={() => setMode("password")}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700/60 transition cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-full bg-transparent hover:bg-white/5 text-slate-300 hover:text-white font-semibold text-sm border border-white/10 transition cursor-pointer"
             >
               <Mail className="w-4 h-4 text-slate-400" />
               <span>Sign In with Email & Password</span>

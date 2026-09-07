@@ -8,7 +8,7 @@ from notifier import notify_users
 # Load env variables for local testing
 load_dotenv()
 
-def run_monitor(scrapers_list=None, mode_label="All"):
+def run_monitor(scrapers_list=None, mode_label="All", notify=True):
     """
     Executes the scraper and notification pipeline for the provided scrapers list.
     """
@@ -33,6 +33,9 @@ def run_monitor(scrapers_list=None, mode_label="All"):
 
         print(f"[{label}] fetched {len(jobs)} matching job(s) before dedup", flush=True)
 
+        is_newgrad = "newgrad" in label.lower() or "new-grad" in label.lower()
+        job_type = "newgrad" if is_newgrad else "internship"
+
         new_count = 0
         for item in jobs:
             uid, title, company, location, url = item[:5]
@@ -42,12 +45,12 @@ def run_monitor(scrapers_list=None, mode_label="All"):
             ts, date_str = parse_job_date(raw_date)
 
             # Intra-run deduplication check
-            dedup_keys = generate_dedup_keys(company, title, country, url)
+            dedup_keys = generate_dedup_keys(company, title, country, url, job_type=job_type)
             if uid in seen_in_this_run or any(k in seen_in_this_run for k in dedup_keys):
                 continue
 
             # Try to insert/upsert job into database
-            is_new = db.upsert_job(uid, label, title, company, location, country, url, ts, date_str)
+            is_new = db.upsert_job(uid, label, title, company, location, country, url, ts, date_str, job_type=job_type)
             if not is_new:
                 # Mark seen so subsequent scrapers in same run don't query again
                 seen_in_this_run.add(uid)
@@ -65,8 +68,11 @@ def run_monitor(scrapers_list=None, mode_label="All"):
         print(f"[{label}] {new_count} new job(s) added.", flush=True)
 
     # 3. Notify users with fan-out engine
-    print(f"Processing notifications for {len(new_jobs)} new job(s)...", flush=True)
-    notify_users(new_jobs)
+    if notify:
+        print(f"Processing notifications for {len(new_jobs)} new job(s)...", flush=True)
+        notify_users(new_jobs)
+    else:
+        print(f"Notifications disabled (--no-notify). {len(new_jobs)} new job(s) saved without sending alerts.", flush=True)
 
 
 def main():
@@ -77,14 +83,21 @@ def main():
         default="all",
         help="Type of jobs to monitor (all, internship, newgrad)"
     )
+    parser.add_argument(
+        "--no-notify",
+        action="store_true",
+        help="Scrape and save jobs to database/seen without sending notifications"
+    )
     args = parser.parse_args()
 
+    notify = not args.no_notify
+
     if args.type == "newgrad":
-        run_monitor(NEWGRAD_SCRAPERS, mode_label="New Grad")
+        run_monitor(NEWGRAD_SCRAPERS, mode_label="New Grad", notify=notify)
     elif args.type == "internship":
-        run_monitor(INTERNSHIP_SCRAPERS, mode_label="Internship")
+        run_monitor(INTERNSHIP_SCRAPERS, mode_label="Internship", notify=notify)
     else:
-        run_monitor(SCRAPERS, mode_label="All")
+        run_monitor(SCRAPERS, mode_label="All", notify=notify)
 
 
 if __name__ == "__main__":

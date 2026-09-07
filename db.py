@@ -42,7 +42,7 @@ def _save_local_seen_jobs(seen_jobs: set):
         print(f"Warning saving {SEEN_JOBS_FILE}: {e}", flush=True)
 
 
-def upsert_job(uid: str, source: str, title: str, company: str, location: str, country: str, url: str, posted_timestamp: int = 0, posted_date_str: str = "") -> bool:
+def upsert_job(uid: str, source: str, title: str, company: str, location: str, country: str, url: str, posted_timestamp: int = 0, posted_date_str: str = "", job_type: str = "") -> bool:
     """
     Inserts a job into Supabase and local seen_jobs.json fallback with multi-key deduplication.
     Returns True if it is a new unique job, False if already seen across any scraper.
@@ -50,8 +50,11 @@ def upsert_job(uid: str, source: str, title: str, company: str, location: str, c
     global supabase
     local_seen = _load_local_seen_jobs()
 
+    if not job_type:
+        job_type = "newgrad" if ("newgrad" in source.lower() or "new-grad" in source.lower()) else "internship"
+
     # 1. Multi-key deduplication check
-    dedup_keys = generate_dedup_keys(company, title, country, url)
+    dedup_keys = generate_dedup_keys(company, title, country, url, job_type=job_type)
     if uid in local_seen:
         return False
     for k in dedup_keys:
@@ -118,6 +121,96 @@ def upsert_job(uid: str, source: str, title: str, company: str, location: str, c
         _save_local_seen_jobs(local_seen)
 
     return is_new
+
+
+def batch_upsert_jobs(jobs: list[dict], default_job_type: str = "") -> int:
+    """
+    High-performance batch upsert for scraping large sets of jobs into Supabase and seen_jobs.json.
+    Deduplicates intra-batch and against seen_jobs.json, batch-inserts into Supabase in chunks of 200,
+    and saves updated seen_jobs.json once at the end.
+    Returns the count of new jobs inserted.
+    """
+    global supabase
+    local_seen = _load_local_seen_jobs()
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    to_insert = []
+    seen_in_batch = set()
+
+    for j in jobs:
+        uid = j.get("external_uid") or j.get("uid") or j.get("id")
+        source = j.get("source", "Scraper")
+        title = j.get("title", "")
+        company = j.get("company", "")
+        location = j.get("location", "")
+        country = j.get("country", "other")
+        url = j.get("url", "")
+        posted_ts = j.get("posted_timestamp", 0)
+
+        job_type = j.get("job_type") or default_job_type
+        if not job_type:
+            job_type = "newgrad" if ("newgrad" in source.lower() or "new-grad" in source.lower()) else "internship"
+
+        dedup_keys = generate_dedup_keys(company, title, country, url, job_type=job_type)
+
+        if uid in local_seen or uid in seen_in_batch:
+            continue
+        if any(k in local_seen or k in seen_in_batch for k in dedup_keys):
+            continue
+
+        seen_in_batch.add(uid)
+        for k in dedup_keys:
+            seen_in_batch.add(k)
+
+        row = {
+            "external_uid": uid,
+            "source": source,
+            "title": title,
+            "company": company,
+            "location": location,
+            "country": country,
+            "url": url,
+            "first_seen_at": now_iso,
+            "is_active": True,
+        }
+        if posted_ts and posted_ts > 0:
+            try:
+                row["posted_at"] = datetime.fromtimestamp(posted_ts, tz=timezone.utc).isoformat()
+            except Exception:
+                pass
+        to_insert.append(row)
+
+    print(f"[Batch Upsert] Found {len(to_insert)} new unique job(s) out of {len(jobs)} inputs.", flush=True)
+
+    if not to_insert:
+        return 0
+
+    inserted_count = 0
+    if supabase:
+        batch_size = 200
+        for i in range(0, len(to_insert), batch_size):
+            chunk = to_insert[i:i + batch_size]
+            try:
+                supabase.table("jobs").upsert(chunk, on_conflict="external_uid").execute()
+                inserted_count += len(chunk)
+                print(f"[Batch Upsert] Synced {inserted_count}/{len(to_insert)} jobs to Supabase...", flush=True)
+            except Exception as e:
+                print(f"[Batch Upsert] Error inserting chunk {i}-{i+len(chunk)}: {e}", flush=True)
+                for item in chunk:
+                    try:
+                        supabase.table("jobs").upsert(item, on_conflict="external_uid").execute()
+                        inserted_count += 1
+                    except Exception:
+                        pass
+    else:
+        inserted_count = len(to_insert)
+
+    # Update seen_jobs.json once
+    local_seen.update(seen_in_batch)
+    _save_local_seen_jobs(local_seen)
+    print(f"[Batch Upsert] Successfully committed {inserted_count} jobs and updated seen_jobs.json.", flush=True)
+    return inserted_count
+
 
 
 

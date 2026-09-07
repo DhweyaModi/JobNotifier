@@ -53,13 +53,16 @@ function deduplicateJobs(jobs: Job[]): Job[] {
     const normCountry = (job.country || "").toLowerCase();
     const normU = normalizeUrl(job.url || "");
 
+    const isNewGrad = Boolean(job.source && /new-?grad/i.test(job.source));
+    const prefix = isNewGrad ? "role:newgrad:" : "role:";
+
     const keys: string[] = [];
     if (normU) keys.push(`url:${normU}`);
     if (normComp && normTit) {
       if (normCountry && normCountry !== "other") {
-        keys.push(`role:${normComp}:${normTit}:${normCountry}`);
+        keys.push(`${prefix}${normComp}:${normTit}:${normCountry}`);
       }
-      keys.push(`role:${normComp}:${normTit}`);
+      keys.push(`${prefix}${normComp}:${normTit}`);
     }
 
     const isDuplicate = keys.some((k) => seenKeys.has(k)) || seenKeys.has(job.id);

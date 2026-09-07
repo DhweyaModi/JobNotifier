@@ -411,6 +411,42 @@ def test_monitor_newgrad_execution():
         assert sent_jobs[0][2] == "Shopify"
 
 
+def test_google_scraper_filtering():
+    from scrapers.google import fetch_google_jobs
+    
+    mock_payload = [
+        {"id": "1", "title": "Part-Time Software Engineering BS/MS Intern, 2027", "location": "Tel Aviv, Israel"},
+        {"id": "2", "title": "Software Engineer, gReach Program for People with Disabilities", "location": "Beijing, China"},
+        {"id": "3", "title": "Silicon Engineering Intern, PhD, Summer 2027", "location": "Bengaluru, India"},
+        {"id": "4", "title": "Hardware/Silicon Engineering PhD Intern, 2027", "location": "Haifa, Israel"},
+        {"id": "5", "title": "Student Researcher Program Manager, Talent Engagement", "location": "London, UK"},
+        {"id": "6", "title": "Software Engineering Intern, BS, Summer 2027", "location": "Mountain View, CA"},
+        {"id": "7", "title": "Open Engineering Career Opportunities, CapitalG Portfolio", "location": "Remote"},
+    ]
+
+    with patch("requests.get") as mock_get, \
+         patch("scrapers.google._extract_from_callbacks", return_value=mock_payload):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = "<html>mock</html>"
+        mock_get.return_value = mock_resp
+
+        jobs = fetch_google_jobs()
+        job_titles = [j[1] for j in jobs]
+
+        # Valid tech internships (including PhD and BS/MS) must be kept
+        assert "Part-Time Software Engineering BS/MS Intern, 2027" in job_titles
+        assert "Silicon Engineering Intern, PhD, Summer 2027" in job_titles
+        assert "Hardware/Silicon Engineering PhD Intern, 2027" in job_titles
+        assert "Software Engineering Intern, BS, Summer 2027" in job_titles
+
+        # Non-intern programs and staff/management roles must be excluded
+        assert "Software Engineer, gReach Program for People with Disabilities" not in job_titles
+        assert "Student Researcher Program Manager, Talent Engagement" not in job_titles
+        assert "Open Engineering Career Opportunities, CapitalG Portfolio" not in job_titles
+
+
+
 
 
 

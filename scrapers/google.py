@@ -118,10 +118,23 @@ def fetch_google_jobs():
                 if not job_id or not title or job_id in seen_ids:
                     continue
 
-                # Filters: verify role match or student/intern keywords
+                # Filters: exclude corporate staff/management or non-intern career programs
                 title_lower = title.lower()
-                is_student_role = "student researcher" in title_lower or "step" in title_lower or "fellow" in title_lower or "apprentice" in title_lower
-                if not (role_matches(title) or is_internship(title) or is_student_role):
+                if any(ex in title_lower for ex in ["greach", "talent engagement", "recruiter", "director", "career opportunities"]):
+                    continue
+
+                if "manager" in title_lower and not is_internship(title):
+                    continue
+
+                # Must be an internship or student role (including PhD / BS / MS)
+                is_student_role = is_internship(title) or any(
+                    k in title_lower for k in ["student researcher", "step intern", "phd intern", "bs/ms intern", "apprentice"]
+                )
+                if not is_student_role:
+                    continue
+
+                # Must match technical role keywords (software, systems, ai, research, etc.)
+                if not role_matches(title):
                     continue
 
                 company = "Google"

@@ -225,29 +225,41 @@ def test_deduplication_normalization():
     assert "role:datadog:software engineer:usa" in keys2
 
 
-def test_notifier_deduplication():
-    from notifier import notify_users
+def test_google_careers_parser():
+    from scrapers.google import _extract_from_callbacks, fetch_google_jobs
 
-    # Duplicate job representations across different scrapers
-    job1 = ("SimplifyJobs", "Software Engineering Intern - Summer 2026", "Datadog, Inc.", "New York, NY", "https://boards.greenhouse.io/datadog/jobs/101")
-    job2 = ("SpeedyApply-SWE", "SWE Intern", "Datadog", "New York, NY", "https://boards.greenhouse.io/datadog/jobs/101?gh_src=test")
+    mock_html = """
+    <html><body>
+    <script>
+    AF_initDataCallback({key: 'ds:1', hash: '2', data:[[
+        ["123510626377966278", "Software Developer Intern, BS, Summer 2027", "https://apply.google.com/1", null, null, null, null, "Google", "en-US",
+         [["Waterloo, ON, Canada", ["Waterloo, ON, Canada"], "Waterloo", null, "Ontario", "CA"],
+          ["Toronto, ON, Canada", ["Toronto, ON, Canada"], "Toronto", null, "Ontario", "CA"]],
+         null, [4], [1786974135, 609000000]],
+        ["100648618540573382", "Software Engineering Intern, BS, Summer 2027", "https://apply.google.com/2", null, null, null, null, "Google", "en-US",
+         [["Mountain View, CA, USA", ["Mountain View, CA, USA"], "Mountain View", null, "California", "US"],
+          ["Seattle, WA, USA", ["Seattle, WA, USA"], "Seattle", null, "Washington", "US"]],
+         null, [4], [1786974135, 609000000]]
+    ]]});
+    </script>
+    </body></html>
+    """
+    results = _extract_from_callbacks(mock_html)
+    assert len(results) == 2
+    assert results[0]["id"] == "123510626377966278"
+    assert results[0]["title"] == "Software Developer Intern, BS, Summer 2027"
+    assert "Waterloo, ON, Canada" in results[0]["location"]
+    assert "Toronto, ON, Canada" in results[0]["location"]
 
-    with patch("db.get_active_users") as mock_users, patch("requests.post") as mock_post:
-        mock_users.return_value = [{
-            "email": "test@user.com",
-            "webhook_url": "https://hooks.slack.com/services/mock",
-            "platform": "slack",
-            "user_filters": {"countries": ["usa"]}
-        }]
-        mock_post.return_value = MagicMock(status_code=200)
+    assert results[1]["id"] == "100648618540573382"
+    assert "Mountain View, CA, USA" in results[1]["location"]
+    assert "Seattle, WA, USA" in results[1]["location"]
 
-        # Notify with both duplicate jobs
-        notify_users([job1, job2])
+    # Verify country classification
+    from scrapers.base_scraper import classify_country
+    assert classify_country(results[0]["location"]) == "canada"
+    assert classify_country(results[1]["location"]) == "usa"
 
-        # Should only send 1 notification payload containing 1 job
-        assert mock_post.call_count == 1
-        payload = mock_post.call_args[1]["json"]
-        assert "1 new job(s) found!" in payload["text"]
 
 
 

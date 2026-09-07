@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 from datetime import datetime, timezone
 from supabase import create_client, Client
@@ -40,6 +41,43 @@ def _save_local_seen_jobs(seen_jobs: set):
             json.dump(sorted(list(seen_jobs)), f, indent=2)
     except Exception as e:
         print(f"Warning saving {SEEN_JOBS_FILE}: {e}", flush=True)
+
+
+def verify_database_health() -> tuple[bool, str]:
+    """
+    Validates database connectivity and write permissions by inserting and deleting a probe row.
+    Returns (True, "OK") if healthy, or (False, error_details) if write access is broken (e.g. RLS).
+    """
+    global supabase
+    if not supabase:
+        return True, "Supabase client not configured (operating in local fallback mode)."
+
+    probe_uid = f"__health_probe_{int(datetime.now(timezone.utc).timestamp())}__"
+    try:
+        # Test write permission
+        res = supabase.table("jobs").insert({
+            "external_uid": probe_uid,
+            "source": "HealthProbe",
+            "title": "Health Probe Test",
+            "company": "ProbeCo",
+            "location": "Remote",
+            "country": "other",
+            "url": "https://probe.test",
+            "is_active": False
+        }).execute()
+
+        if not res.data:
+            return False, "Probe insert returned empty data without exception."
+
+        # Clean up probe
+        supabase.table("jobs").delete().eq("external_uid", probe_uid).execute()
+        return True, "Database write access verified successfully."
+    except APIError as e:
+        if e.code == "42501":
+            return False, "Row-Level Security (RLS) is blocking inserts on table 'jobs' (code 42501)."
+        return False, f"Supabase APIError during health check [code {e.code}]: {e.message}"
+    except Exception as exc:
+        return False, f"Unexpected error during health check: {exc}"
 
 
 def upsert_job(uid: str, source: str, title: str, company: str, location: str, country: str, url: str, posted_timestamp: int = 0, posted_date_str: str = "", job_type: str = "") -> bool:
@@ -92,7 +130,8 @@ def upsert_job(uid: str, source: str, title: str, company: str, location: str, c
             if e.code == "23505":  # Duplicate key in database
                 is_new = False
             else:
-                is_new = True
+                print(f"❌ [Supabase APIError] Failed to insert job '{title}' ({uid}) [code {e.code}]: {e.message}", file=sys.stderr, flush=True)
+                is_new = False
         except Exception as exc:
             # If table doesn't have first_seen_at or other error, fallback insert without optional fields
             try:
@@ -108,8 +147,15 @@ def upsert_job(uid: str, source: str, title: str, company: str, location: str, c
                 }).execute()
                 if response.data and len(response.data) > 0:
                     is_new = True
-            except Exception:
-                is_new = True
+            except APIError as sub_e:
+                if sub_e.code == "23505":
+                    is_new = False
+                else:
+                    print(f"❌ [Supabase APIError] {uid} [code {sub_e.code}]: {sub_e.message}", file=sys.stderr, flush=True)
+                    is_new = False
+            except Exception as sub_exc:
+                print(f"❌ [Supabase Error] {uid}: {sub_exc}", file=sys.stderr, flush=True)
+                is_new = False
     else:
         is_new = True
 

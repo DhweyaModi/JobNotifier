@@ -22,6 +22,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Run verification tests
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: pytest tests/
+
       - name: Run monitor
         env:
           SLACK_WEBHOOK_CANADA: ${{ secrets.SLACK_WEBHOOK_URL_CANADA }}

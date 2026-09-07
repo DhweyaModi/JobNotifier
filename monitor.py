@@ -12,6 +12,21 @@ def run_monitor(scrapers_list=None, mode_label="All", notify=True):
     """
     Executes the scraper and notification pipeline for the provided scrapers list.
     """
+    # 0. Pre-flight health check to prevent silent database failures
+    if db.supabase:
+        print(f"[{mode_label} Monitor] Running pre-flight database health check...", flush=True)
+        is_healthy, msg = db.verify_database_health()
+        if not is_healthy:
+            err_banner = (
+                f"\n{'='*70}\n"
+                f"🚨 CRITICAL DATABASE ERROR: {msg}\n"
+                f"Aborting monitor run to prevent silent data loss and desync!\n"
+                f"{'='*70}\n"
+            )
+            print(err_banner, file=sys.stderr, flush=True)
+            raise RuntimeError(f"Database write access failed: {msg}")
+        print(f"[{mode_label} Monitor] ✅ {msg}", flush=True)
+
     # 1. Ensure admin users are seeded from environment webhooks if they exist
     print(f"[{mode_label} Monitor] Checking and seeding admin users...", flush=True)
     db.seed_admin_users()

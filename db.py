@@ -323,6 +323,20 @@ def get_active_users():
                     f = u.get("user_filters")
                     if isinstance(f, list) and len(f) > 0:
                         u["user_filters"] = f[0]
+                        f = u["user_filters"]
+                    elif f is None:
+                        u["user_filters"] = {}
+                        f = u["user_filters"]
+
+                    # Strictly partition admin channels and defaults by email
+                    email = (u.get("email") or "").lower()
+                    if "newgrad" in email or "new-grad" in email:
+                        f["job_type"] = "newgrad"
+                    elif email.startswith("admin+"):
+                        f["job_type"] = "internship"
+                    elif "job_type" not in f:
+                        f["job_type"] = "internship"
+
                     users.append(u)
         except Exception as e:
             print(f"Error fetching active users from Supabase: {e}", flush=True)

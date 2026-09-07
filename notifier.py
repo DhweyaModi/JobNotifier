@@ -66,6 +66,11 @@ def match_job_filters(job: tuple, filters: dict) -> bool:
                 return False
             elif target_job_type_lower == "internship" and is_newgrad:
                 return False
+    else:
+        # Default behavior when job_type is omitted:
+        # Only accept internships by default; new grad roles require explicit newgrad filter
+        if is_newgrad:
+            return False
 
     # 1. High Tech filter (if enabled for channel)
     if filters.get("high_tech_only"):
@@ -148,6 +153,12 @@ def notify_users(new_jobs: list) -> None:
             continue
 
         filters = user.get("user_filters") or {}
+        email_lower = (user.get("email") or "").lower()
+        if "newgrad" in email_lower or "new-grad" in email_lower:
+            filters["job_type"] = "newgrad"
+        elif email_lower.startswith("admin+"):
+            filters["job_type"] = "internship"
+
         user_jobs = [job for job in new_jobs if match_job_filters(job, filters)]
         
         if not user_jobs:

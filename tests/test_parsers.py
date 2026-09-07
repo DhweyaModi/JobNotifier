@@ -385,6 +385,46 @@ def test_speedyapply_newgrad_routing():
     assert match_job_filters(speedy_swe_intern, ca_newgrad_filter) is False
 
 
+def test_admin_channels_strict_job_type_isolation():
+    """Verify that internships never route to new grad channels and new grads never route to internship channels."""
+    from notifier import match_job_filters
+
+    walmart_intern = ("SimplifyJobs", "Transportation Data Analyst 2 Intern", "Walmart", "Bentonville, AR", "https://walmart.com")
+    canadian_intern = ("Canadian-Tech-Internships", "Software Engineer Intern", "Shopify", "Toronto, ON", "https://shopify.com")
+    newgrad_usa = ("SimplifyJobs-NewGrad", "Software Engineer - New Grad", "Google", "Mountain View, CA", "https://google.com")
+    newgrad_ca = ("SimplifyJobs-NewGrad", "Software Engineer - New Grad", "Shopify", "Toronto, ON", "https://shopify.com")
+
+    # Filters with explicit job_type partition
+    admin_usa_intern = {"countries": ["usa"], "job_type": "internship"}
+    admin_ca_intern = {"countries": ["canada"], "job_type": "internship"}
+    admin_usa_newgrad = {"countries": ["usa"], "job_type": "newgrad"}
+    admin_ca_newgrad = {"countries": ["canada"], "job_type": "newgrad"}
+
+    # USA Internship routes to USA Internship ONLY
+    assert match_job_filters(walmart_intern, admin_usa_intern) is True
+    assert match_job_filters(walmart_intern, admin_ca_intern) is False
+    assert match_job_filters(walmart_intern, admin_usa_newgrad) is False
+    assert match_job_filters(walmart_intern, admin_ca_newgrad) is False
+
+    # Canada Internship routes to Canada Internship ONLY
+    assert match_job_filters(canadian_intern, admin_ca_intern) is True
+    assert match_job_filters(canadian_intern, admin_usa_intern) is False
+    assert match_job_filters(canadian_intern, admin_ca_newgrad) is False
+    assert match_job_filters(canadian_intern, admin_usa_newgrad) is False
+
+    # USA New Grad routes to USA New Grad ONLY
+    assert match_job_filters(newgrad_usa, admin_usa_newgrad) is True
+    assert match_job_filters(newgrad_usa, admin_usa_intern) is False
+    assert match_job_filters(newgrad_usa, admin_ca_newgrad) is False
+    assert match_job_filters(newgrad_usa, admin_ca_intern) is False
+
+    # Canada New Grad routes to Canada New Grad ONLY
+    assert match_job_filters(newgrad_ca, admin_ca_newgrad) is True
+    assert match_job_filters(newgrad_ca, admin_ca_intern) is False
+    assert match_job_filters(newgrad_ca, admin_usa_newgrad) is False
+    assert match_job_filters(newgrad_ca, admin_usa_intern) is False
+
+
 def test_monitor_newgrad_execution():
     from monitor import run_monitor
     from scrapers import NEWGRAD_SCRAPERS

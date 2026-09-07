@@ -1,23 +1,29 @@
 import sys
+import argparse
 from dotenv import load_dotenv
 import db
-from scrapers import SCRAPERS
+from scrapers import SCRAPERS, NEWGRAD_SCRAPERS, INTERNSHIP_SCRAPERS
 from notifier import notify_users
 
 # Load env variables for local testing
 load_dotenv()
 
-def main():
+def run_monitor(scrapers_list=None, mode_label="All"):
+    """
+    Executes the scraper and notification pipeline for the provided scrapers list.
+    """
     # 1. Ensure admin users are seeded from environment webhooks if they exist
-    print("Checking and seeding admin users...", flush=True)
+    print(f"[{mode_label} Monitor] Checking and seeding admin users...", flush=True)
     db.seed_admin_users()
 
-    new_jobs = []
+    if scrapers_list is None:
+        scrapers_list = SCRAPERS
 
+    new_jobs = []
     seen_in_this_run = set()
 
-    # 2. Iterate through all the scrapers
-    for fetch_fn, label in SCRAPERS:
+    # 2. Iterate through all the scrapers in the target list
+    for fetch_fn, label in scrapers_list:
         try:
             print(f"[{label}] Fetching jobs...", flush=True)
             jobs = fetch_fn()
@@ -61,6 +67,25 @@ def main():
     # 3. Notify users with fan-out engine
     print(f"Processing notifications for {len(new_jobs)} new job(s)...", flush=True)
     notify_users(new_jobs)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="JobNotifier Multi-Source Scraper Monitor")
+    parser.add_argument(
+        "--type",
+        choices=["all", "internship", "newgrad"],
+        default="all",
+        help="Type of jobs to monitor (all, internship, newgrad)"
+    )
+    args = parser.parse_args()
+
+    if args.type == "newgrad":
+        run_monitor(NEWGRAD_SCRAPERS, mode_label="New Grad")
+    elif args.type == "internship":
+        run_monitor(INTERNSHIP_SCRAPERS, mode_label="Internship")
+    else:
+        run_monitor(SCRAPERS, mode_label="All")
+
 
 if __name__ == "__main__":
     main()

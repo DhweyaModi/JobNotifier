@@ -121,7 +121,7 @@ def upsert_job(uid: str, source: str, title: str, company: str, location: str, c
 
 
 
-def create_user_with_filters(email: str, webhook_url: str, platform: str, keywords: list, countries: list, roles: list, min_grad_year: int = None):
+def create_user_with_filters(email: str, webhook_url: str, platform: str, keywords: list, countries: list, roles: list, min_grad_year: int = None, job_type: str = "internship"):
     """
     Creates or updates a user and their associated filters in the database.
     """
@@ -145,13 +145,22 @@ def create_user_with_filters(email: str, webhook_url: str, platform: str, keywor
             }).execute()
             user_id = res_insert.data[0]["id"]
             
-        supabase.table("user_filters").upsert({
+        filter_payload = {
             "user_id": user_id,
             "keywords": keywords,
             "countries": countries,
             "roles": roles,
-            "min_grad_year": min_grad_year
-        }).execute()
+            "min_grad_year": min_grad_year,
+        }
+        if job_type:
+            filter_payload["job_type"] = job_type
+
+        try:
+            supabase.table("user_filters").upsert(filter_payload).execute()
+        except Exception:
+            # Fallback if job_type column does not exist in user_filters table
+            filter_payload.pop("job_type", None)
+            supabase.table("user_filters").upsert(filter_payload).execute()
         
         return user_id
     except Exception as e:
@@ -184,6 +193,8 @@ def get_active_users():
     if not users:
         canada_webhook = os.environ.get("SLACK_WEBHOOK_CANADA")
         usa_webhook = os.environ.get("SLACK_WEBHOOK_USA")
+        newgrad_canada_webhook = os.environ.get("SLACK_WEBHOOK_NEWGRAD_CANADA")
+        newgrad_usa_webhook = os.environ.get("SLACK_WEBHOOK_NEWGRAD_USA")
         other_webhook = os.environ.get("SLACK_WEBHOOK_URL")
 
         if canada_webhook:
@@ -191,21 +202,36 @@ def get_active_users():
                 "email": "admin+canada@jobnotifier.com",
                 "webhook_url": canada_webhook,
                 "platform": "slack",
-                "user_filters": {"countries": ["canada"]}
+                "user_filters": {"countries": ["canada"], "job_type": "internship"}
             })
         if usa_webhook:
             users.append({
                 "email": "admin+usa@jobnotifier.com",
                 "webhook_url": usa_webhook,
                 "platform": "slack",
-                "user_filters": {"countries": ["usa"]}
+                "user_filters": {"countries": ["usa"], "job_type": "internship"}
             })
-        if other_webhook and other_webhook not in (canada_webhook, usa_webhook):
+        if newgrad_canada_webhook:
+            users.append({
+                "email": "admin+newgrad-canada@jobnotifier.com",
+                "webhook_url": newgrad_canada_webhook,
+                "platform": "slack",
+                "user_filters": {"countries": ["canada"], "job_type": "newgrad"}
+            })
+        if newgrad_usa_webhook:
+            users.append({
+                "email": "admin+newgrad-usa@jobnotifier.com",
+                "webhook_url": newgrad_usa_webhook,
+                "platform": "slack",
+                "user_filters": {"countries": ["usa"], "job_type": "newgrad"}
+            })
+        known_webhooks = {canada_webhook, usa_webhook, newgrad_canada_webhook, newgrad_usa_webhook}
+        if other_webhook and other_webhook not in known_webhooks:
             users.append({
                 "email": "admin+other@jobnotifier.com",
                 "webhook_url": other_webhook,
                 "platform": "slack",
-                "user_filters": {"countries": ["other"]}
+                "user_filters": {"countries": ["other"], "job_type": "internship"}
             })
 
     return users
@@ -217,6 +243,8 @@ def seed_admin_users():
     """
     canada_webhook = os.environ.get("SLACK_WEBHOOK_CANADA")
     usa_webhook = os.environ.get("SLACK_WEBHOOK_USA")
+    newgrad_canada_webhook = os.environ.get("SLACK_WEBHOOK_NEWGRAD_CANADA")
+    newgrad_usa_webhook = os.environ.get("SLACK_WEBHOOK_NEWGRAD_USA")
     other_webhook = os.environ.get("SLACK_WEBHOOK_URL")
 
     if canada_webhook:
@@ -226,7 +254,8 @@ def seed_admin_users():
             platform="slack",
             keywords=[],
             countries=["canada"],
-            roles=[]
+            roles=[],
+            job_type="internship"
         )
 
     if usa_webhook:
@@ -236,16 +265,41 @@ def seed_admin_users():
             platform="slack",
             keywords=[],
             countries=["usa"],
-            roles=[]
+            roles=[],
+            job_type="internship"
         )
 
-    if other_webhook:
+    if newgrad_canada_webhook:
+        create_user_with_filters(
+            email="admin+newgrad-canada@jobnotifier.com",
+            webhook_url=newgrad_canada_webhook,
+            platform="slack",
+            keywords=[],
+            countries=["canada"],
+            roles=[],
+            job_type="newgrad"
+        )
+
+    if newgrad_usa_webhook:
+        create_user_with_filters(
+            email="admin+newgrad-usa@jobnotifier.com",
+            webhook_url=newgrad_usa_webhook,
+            platform="slack",
+            keywords=[],
+            countries=["usa"],
+            roles=[],
+            job_type="newgrad"
+        )
+
+    known_webhooks = {canada_webhook, usa_webhook, newgrad_canada_webhook, newgrad_usa_webhook}
+    if other_webhook and other_webhook not in known_webhooks:
         create_user_with_filters(
             email="admin+other@jobnotifier.com",
             webhook_url=other_webhook,
             platform="slack",
             keywords=[],
             countries=["other"],
-            roles=[]
+            roles=[],
+            job_type="internship"
         )
 

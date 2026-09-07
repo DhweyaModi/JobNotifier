@@ -47,7 +47,7 @@ export const SlackCommunityModal: React.FC<SlackCommunityModalProps> = ({
 
         {/* Community Channels Breakdown */}
         <div className="space-y-2.5">
-          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex items-start gap-3 hover:border-amber-500/30 transition">
+          <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/10 flex items-start gap-3 hover:border-amber-500/30 transition">
             <div className="p-2 rounded-xl bg-amber-500/10 text-amber-300 shrink-0 mt-0.5 border border-amber-500/30">
               <Zap className="w-4 h-4" />
             </div>
@@ -64,7 +64,7 @@ export const SlackCommunityModal: React.FC<SlackCommunityModalProps> = ({
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex items-start gap-3 hover:border-amber-500/30 transition">
+          <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/10 flex items-start gap-3 hover:border-amber-500/30 transition">
             <div className="p-2 rounded-xl bg-amber-500/10 text-amber-300 shrink-0 mt-0.5 border border-amber-500/30">
               <MapPin className="w-4 h-4" />
             </div>
@@ -76,7 +76,7 @@ export const SlackCommunityModal: React.FC<SlackCommunityModalProps> = ({
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex items-start gap-3 hover:border-sky-500/30 transition">
+          <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/10 flex items-start gap-3 hover:border-sky-500/30 transition">
             <div className="p-2 rounded-xl bg-sky-500/10 text-sky-300 shrink-0 mt-0.5 border border-sky-500/30">
               <MapPin className="w-4 h-4" />
             </div>
@@ -84,6 +84,40 @@ export const SlackCommunityModal: React.FC<SlackCommunityModalProps> = ({
               <h4 className="text-sm font-display font-bold text-slate-100">#usa-internships 🇺🇸</h4>
               <p className="text-xs text-slate-400 mt-0.5">
                 USA engineering & data internships across SF, NYC, Seattle, Austin & Remote US.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-white/[0.03] border border-emerald-500/20 flex items-start gap-3 hover:border-emerald-500/40 transition">
+            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-300 shrink-0 mt-0.5 border border-emerald-500/30">
+              <MapPin className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-display font-bold text-slate-100">#canada-new-grad 🇨🇦</h4>
+                <span className="text-[10px] font-mono bg-emerald-500/15 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                  NEW
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Dedicated New Grad full-time entry-level tech roles in Canada.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-white/[0.03] border border-emerald-500/20 flex items-start gap-3 hover:border-emerald-500/40 transition">
+            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-300 shrink-0 mt-0.5 border border-emerald-500/30">
+              <MapPin className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-display font-bold text-slate-100">#usa-new-grad 🇺🇸</h4>
+                <span className="text-[10px] font-mono bg-emerald-500/15 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                  NEW
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Dedicated New Grad full-time entry-level tech roles across the USA.
               </p>
             </div>
           </div>

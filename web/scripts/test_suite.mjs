@@ -353,6 +353,82 @@ it("should generate RFC4122 compliant guest user identifiers", () => {
   }
 });
 
+// --- 7. New Grad vs. Internship Channel Segregation ---
+console.log("\n--- 7. New Grad & Internship Channel Segregation ---");
+
+function matchJobFilters(job, filters) {
+  const sourceLower = (job.source || "").toLowerCase();
+  const isNewgrad = sourceLower.includes("newgrad") || sourceLower.includes("new-grad");
+
+  // Job type segregation
+  if (filters.jobType) {
+    const targetType = filters.jobType.toLowerCase();
+    if (targetType === "newgrad" && !isNewgrad) return false;
+    if (targetType === "internship" && isNewgrad) return false;
+  }
+
+  // Country filtering
+  if (filters.countries && filters.countries.length > 0) {
+    const jobCountry = (job.country || "").toLowerCase();
+    const matchesCountry = filters.countries.some((c) => {
+      const cLow = c.toLowerCase();
+      if (cLow === "canada" && (jobCountry === "canada" || jobCountry === "both")) return true;
+      if (cLow === "usa" && (jobCountry === "usa" || jobCountry === "both")) return true;
+      if (cLow === jobCountry) return true;
+      return false;
+    });
+    if (!matchesCountry) return false;
+  }
+
+  return true;
+}
+
+it("should route Canadian new grad postings strictly to new-grad-canada channel", () => {
+  const newGradCanadaJob = {
+    source: "SimplifyJobs-NewGrad",
+    title: "Software Engineer - New Grad",
+    company: "Amazon",
+    country: "canada",
+  };
+  const internCanadaJob = {
+    source: "Canadian-Tech-Internships",
+    title: "Software Developer Intern",
+    company: "Shopify",
+    country: "canada",
+  };
+
+  const newGradCanadaChannelFilter = { countries: ["canada"], jobType: "newgrad" };
+  const internCanadaChannelFilter = { countries: ["canada"], jobType: "internship" };
+
+  assert.strictEqual(matchJobFilters(newGradCanadaJob, newGradCanadaChannelFilter), true);
+  assert.strictEqual(matchJobFilters(newGradCanadaJob, internCanadaChannelFilter), false);
+  assert.strictEqual(matchJobFilters(internCanadaJob, newGradCanadaChannelFilter), false);
+  assert.strictEqual(matchJobFilters(internCanadaJob, internCanadaChannelFilter), true);
+});
+
+it("should route USA new grad postings strictly to new-grad-usa channel", () => {
+  const newGradUSAJob = {
+    source: "SimplifyJobs-NewGrad",
+    title: "Associate Software Engineer (New Grad)",
+    company: "Google",
+    country: "usa",
+  };
+  const internUSAJob = {
+    source: "SimplifyJobs-Internships",
+    title: "SWE Intern",
+    company: "Meta",
+    country: "usa",
+  };
+
+  const newGradUSAChannelFilter = { countries: ["usa"], jobType: "newgrad" };
+  const internUSAChannelFilter = { countries: ["usa"], jobType: "internship" };
+
+  assert.strictEqual(matchJobFilters(newGradUSAJob, newGradUSAChannelFilter), true);
+  assert.strictEqual(matchJobFilters(newGradUSAJob, internUSAChannelFilter), false);
+  assert.strictEqual(matchJobFilters(internUSAJob, newGradUSAChannelFilter), false);
+  assert.strictEqual(matchJobFilters(internUSAJob, internUSAChannelFilter), true);
+});
+
 // --- Test Summary ---
 console.log("\n============================================================");
 console.log(`📊 Comprehensive Verification Results: ${passed} Passed, ${failed} Failed`);

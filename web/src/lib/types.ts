@@ -26,6 +26,7 @@ export interface FilterState {
   roles: string[];     // multi-select (e.g. ["Software", "AI / ML"])
   statuses: string[];  // multi-select (e.g. ["APPLIED", "SAVED"])
   workType: "all" | "remote" | "hybrid" | "onsite";
+  jobType: "all" | "internship" | "newgrad";
   sortBy: "newest" | "company" | "title";
 }
 

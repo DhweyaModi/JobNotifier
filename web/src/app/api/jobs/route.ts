@@ -86,8 +86,9 @@ export async function GET(request: NextRequest) {
       const { data, error } = await supabase
         .from("jobs")
         .select("*")
+        .order("posted_at", { ascending: false, nullsFirst: false })
         .order("first_seen_at", { ascending: false })
-        .limit(3000);
+        .limit(15000);
 
       if (!error && data && data.length > 0) {
         const jobs: Job[] = data.map((item: any) => {

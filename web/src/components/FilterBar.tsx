@@ -63,6 +63,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           countries: filters.countries,
           roles: filters.roles,
           workType: filters.workType,
+          jobType: filters.jobType || "all",
           search: filters.search,
         })
       );
@@ -137,6 +138,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       roles: [],
       statuses: [],
       workType: "all",
+      jobType: "all",
       sortBy: "newest",
     });
   };
@@ -220,8 +222,71 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         </div>
       </div>
 
-      {/* 2. Country Filter Pills & Workplace Pills */}
-      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/[0.08]">
+      {/* 2. Program Level (Internship vs New Grad) & Workplace Pills */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/[0.08]">
+        {/* Program / Level Switch (All / Internships / New Grad) */}
+        <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-full border border-white/10 shadow-inner">
+          {[
+            { id: "all", label: "All Postings", emoji: "✨" },
+            { id: "internship", label: "Internships", emoji: "🎓" },
+            { id: "newgrad", label: "New Grad", emoji: "🚀" },
+          ].map((tier) => {
+            const isSelected = (filters.jobType || "all") === tier.id;
+            return (
+              <button
+                key={tier.id}
+                onClick={() =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    jobType: tier.id as "all" | "internship" | "newgrad",
+                  }))
+                }
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-mono font-bold transition cursor-pointer ${
+                  isSelected
+                    ? "bg-[#4F46E5] text-white shadow-[0_0_15px_rgba(79,70,229,0.5)] border border-indigo-400/40"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <span>{tier.emoji}</span>
+                <span>{tier.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Workplace Type Segmented Switch */}
+        <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-full border border-white/10">
+          {[
+            { id: "all", label: "All" },
+            { id: "remote", label: "Remote" },
+            { id: "hybrid", label: "Hybrid" },
+            { id: "onsite", label: "Onsite" },
+          ].map((type) => {
+            const isSelected = filters.workType === type.id;
+            return (
+              <button
+                key={type.id}
+                onClick={() =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    workType: type.id as "all" | "remote" | "hybrid" | "onsite",
+                  }))
+                }
+                className={`px-3 py-1 rounded-full text-xs font-mono transition cursor-pointer ${
+                  isSelected
+                    ? "bg-[#5E6AD2] text-white font-bold ring-2 ring-[#5E6AD2]/60 shadow-sm"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                {type.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 3. Country Filter Pills */}
+      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/[0.04]">
         {/* All Regions Pill */}
         <button
           onClick={() => setFilters((prev) => ({ ...prev, countries: [] }))}
@@ -252,36 +317,6 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             </button>
           );
         })}
-
-        {/* Workplace Type Segmented Switch */}
-        <div className="ml-auto flex items-center gap-1 bg-slate-900/80 p-1 rounded-full border border-white/10">
-          {[
-            { id: "all", label: "All" },
-            { id: "remote", label: "Remote" },
-            { id: "hybrid", label: "Hybrid" },
-            { id: "onsite", label: "Onsite" },
-          ].map((type) => {
-            const isSelected = filters.workType === type.id;
-            return (
-              <button
-                key={type.id}
-                onClick={() =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    workType: type.id as "all" | "remote" | "hybrid" | "onsite",
-                  }))
-                }
-                className={`px-3 py-1 rounded-full text-xs font-mono transition cursor-pointer ${
-                  isSelected
-                    ? "bg-[#5E6AD2] text-white font-bold ring-2 ring-[#5E6AD2]/60 shadow-sm"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                {type.label}
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       {/* 3. Role Filter Pills */}

@@ -34,6 +34,7 @@ export default function Home() {
     roles: [],
     statuses: [],
     workType: "all",
+    jobType: "all",
     sortBy: "newest",
   });
 
@@ -56,6 +57,7 @@ export default function Home() {
           countries: parsed.countries || [],
           roles: parsed.roles || [],
           workType: parsed.workType || "all",
+          jobType: parsed.jobType || "all",
           search: parsed.search || "",
         }));
       }
@@ -274,10 +276,16 @@ export default function Home() {
     return Array.from(set).sort();
   }, [jobs]);
 
-  // Multi-Filter & Sorting Logic
   const filteredJobs = useMemo(() => {
     return jobs
       .filter((job) => {
+        // 0. Job Type filter (All vs Internships vs New Grad)
+        if (filters.jobType && filters.jobType !== "all") {
+          const isNewGrad = Boolean(job.source && /new-?grad/i.test(job.source));
+          if (filters.jobType === "newgrad" && !isNewGrad) return false;
+          if (filters.jobType === "internship" && isNewGrad) return false;
+        }
+
         // 1. Multi-country filter
         if (filters.countries.length > 0) {
           if (!filters.countries.includes(job.country)) {
@@ -339,13 +347,25 @@ export default function Home() {
         } else if (filters.sortBy === "title") {
           return a.title.localeCompare(b.title);
         }
-        // Default: Newest first (highest scraped timestamp or posted date)
-        const timeB = (b.scrapedAt || b.createdAt) ? new Date(b.scrapedAt || b.createdAt || "").getTime() : ((b.postedTimestamp || 0) * 1000);
-        const timeA = (a.scrapedAt || a.createdAt) ? new Date(a.scrapedAt || a.createdAt || "").getTime() : ((a.postedTimestamp || 0) * 1000);
-        if (!isNaN(timeB) && !isNaN(timeA) && timeB !== timeA) {
+        // Default: Newest first (highest posted timestamp, then fallback to scraped date)
+        const getJobTime = (j: Job) => {
+          if (j.postedTimestamp && j.postedTimestamp > 0) return j.postedTimestamp * 1000;
+          if (j.firstSeenAt) {
+            const t = new Date(j.firstSeenAt).getTime();
+            if (!isNaN(t) && t > 0) return t;
+          }
+          if (j.scrapedAt || j.createdAt) {
+            const t = new Date(j.scrapedAt || j.createdAt || "").getTime();
+            if (!isNaN(t) && t > 0) return t;
+          }
+          return 0;
+        };
+        const timeB = getJobTime(b);
+        const timeA = getJobTime(a);
+        if (timeB !== timeA) {
           return timeB - timeA;
         }
-        return (b.postedTimestamp || 0) - (a.postedTimestamp || 0);
+        return (b.id || "").localeCompare(a.id || "");
       });
   }, [jobs, filters]);
 
@@ -476,6 +496,7 @@ export default function Home() {
                       roles: [],
                       statuses: [],
                       workType: "all",
+                      jobType: "all",
                       sortBy: "newest",
                     })
                   }

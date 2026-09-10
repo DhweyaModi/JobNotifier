@@ -1,7 +1,7 @@
 import sys
 import requests
 import db
-from scrapers.base_scraper import classify_country, generate_dedup_keys
+from scrapers.base_scraper import classify_country, generate_dedup_keys, is_internship
 
 BATCH_SIZE = 15
 
@@ -41,10 +41,48 @@ def match_job_filters(job: tuple, filters: dict) -> bool:
     """
     Returns True if the job matches the user filters, False otherwise.
     job: (source_label, title, company, location, url)
-    filters: dict containing keywords, countries, roles, high_tech_only, min_grad_year
+    filters: dict containing keywords, countries, roles, high_tech_only, min_grad_year, job_type / job_types
     """
-    source_label, title, company, location, url = job
+    source_label, title, company, location, url = job[:5]
     
+    # 0. Job type filter (internship vs newgrad)
+    source_lower = source_label.lower()
+    is_newgrad = "newgrad" in source_lower or "new-grad" in source_lower
+    
+    target_job_types = filters.get("job_types")
+    if target_job_types is not None:
+        if isinstance(target_job_types, str):
+            target_job_types = [target_job_types]
+        types_lower = [t.lower() for t in target_job_types]
+        if "all" not in types_lower:
+            if is_newgrad and "newgrad" not in types_lower and "new-grad" not in types_lower:
+                return False
+            if not is_newgrad and "internship" not in types_lower:
+                return False
+    elif filters.get("job_type"):
+        target_job_type_lower = str(filters["job_type"]).lower()
+        if target_job_type_lower != "all":
+            if target_job_type_lower in ("newgrad", "new-grad") and not is_newgrad:
+                return False
+            elif target_job_type_lower == "internship" and is_newgrad:
+                return False
+    else:
+        # Default behavior when job_type is omitted:
+        # Only accept internships by default; new grad roles require explicit newgrad filter
+        if is_newgrad:
+            return False
+
+    # Absolute safety guard: If target channel is new grad, it must NEVER receive any internship titles
+    is_target_newgrad = False
+    if target_job_types:
+        types_check = [str(x).lower() for x in (target_job_types if isinstance(target_job_types, list) else [target_job_types])]
+        is_target_newgrad = any(t in ("newgrad", "new-grad") for t in types_check)
+    elif filters.get("job_type"):
+        is_target_newgrad = str(filters["job_type"]).lower() in ("newgrad", "new-grad")
+
+    if is_target_newgrad and is_internship(title):
+        return False
+
     # 1. High Tech filter (if enabled for channel)
     if filters.get("high_tech_only"):
         if not is_high_tech_job(title, company):
@@ -126,6 +164,12 @@ def notify_users(new_jobs: list) -> None:
             continue
 
         filters = user.get("user_filters") or {}
+        email_lower = (user.get("email") or "").lower()
+        if "newgrad" in email_lower or "new-grad" in email_lower:
+            filters["job_type"] = "newgrad"
+        elif email_lower.startswith("admin+"):
+            filters["job_type"] = "internship"
+
         user_jobs = [job for job in new_jobs if match_job_filters(job, filters)]
         
         if not user_jobs:

@@ -103,27 +103,36 @@ def fetch_google_jobs():
             raw_jobs = _extract_from_callbacks(resp.text)
 
             for item in raw_jobs:
-                job_id = item["id"]
-                title = item["title"]
+                job_id = str(item.get("id") or "").strip()
+                title = str(item.get("title") or "").strip()
 
                 if not job_id or not title or job_id in seen_ids:
                     continue
 
+                # Filters: exclude corporate staff/management or non-intern career programs
                 title_lower = title.lower()
-                is_student_role = (
-                    "student researcher" in title_lower
-                    or "step" in title_lower
-                    or "fellow" in title_lower
-                    or "apprentice" in title_lower
+                if any(ex in title_lower for ex in ["greach", "talent engagement", "recruiter", "director", "career opportunities"]):
+                    continue
+
+                if "manager" in title_lower and not is_internship(title):
+                    continue
+
+                # Must be an internship or student role (including PhD / BS / MS)
+                is_student_role = is_internship(title) or any(
+                    k in title_lower for k in ["student researcher", "step intern", "phd intern", "bs/ms intern", "apprentice"]
                 )
-                if not (role_matches(title) or is_internship(title) or is_student_role):
+                if not is_student_role:
+                    continue
+
+                # Must match technical role keywords (software, systems, ai, research, etc.)
+                if not role_matches(title):
                     continue
 
                 company = "Google"
-                loc = item["location"]
-                apply_url = item["url"]
+                loc = item.get("location") or "Multiple Locations"
+                apply_url = item.get("url") or f"https://www.google.com/about/careers/applications/jobs/results/{job_id}"
                 uid = f"google:{job_id}"
-                date_posted = str(item["timestamp"]) if item["timestamp"] else ""
+                date_posted = str(item.get("timestamp")) if item.get("timestamp") else ""
 
                 seen_ids.add(job_id)
                 results.append((uid, title, company, loc, apply_url, date_posted))
@@ -152,8 +161,8 @@ def fetch_google_newgrad_jobs():
             raw_jobs = _extract_from_callbacks(resp.text)
 
             for item in raw_jobs:
-                job_id = item["id"]
-                title = item["title"]
+                job_id = str(item.get("id") or "").strip()
+                title = str(item.get("title") or "").strip()
 
                 if not job_id or not title or job_id in seen_ids:
                     continue
@@ -167,10 +176,10 @@ def fetch_google_newgrad_jobs():
                     continue
 
                 company = "Google"
-                loc = item["location"]
-                apply_url = item["url"]
+                loc = item.get("location") or "Multiple Locations"
+                apply_url = item.get("url") or f"https://www.google.com/about/careers/applications/jobs/results/{job_id}"
                 uid = f"google-newgrad:{job_id}"
-                date_posted = str(item["timestamp"]) if item["timestamp"] else ""
+                date_posted = str(item.get("timestamp")) if item.get("timestamp") else ""
 
                 seen_ids.add(job_id)
                 results.append((uid, title, company, loc, apply_url, date_posted))

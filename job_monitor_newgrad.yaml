@@ -1,4 +1,4 @@
-name: Job Monitor
+name: New Grad Job Monitor
 
 on:
   schedule:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  check-jobs:
+  check-newgrad-jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,28 +22,21 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run verification tests
+      - name: Run New Grad Monitor
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: pytest tests/
-
-      - name: Run monitor
-        env:
-          SLACK_WEBHOOK_CANADA: ${{ secrets.SLACK_WEBHOOK_URL_CANADA }}
-          SLACK_WEBHOOK_USA: ${{ secrets.SLACK_WEBHOOK_URL_USA }}
           SLACK_WEBHOOK_NEWGRAD_CANADA: ${{ secrets.SLACK_WEBHOOK_URL_NEWGRAD_CANADA }}
           SLACK_WEBHOOK_NEWGRAD_USA: ${{ secrets.SLACK_WEBHOOK_URL_NEWGRAD_USA }}
+          SLACK_WEBHOOK_CANADA: ${{ secrets.SLACK_WEBHOOK_URL_CANADA }}
+          SLACK_WEBHOOK_USA: ${{ secrets.SLACK_WEBHOOK_URL_USA }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: python monitor.py
+        run: python monitor_newgrad.py
 
       - name: Commit updated seen_jobs.json
         run: |
           git config user.name "job-monitor-bot"
           git config user.email "actions@github.com"
           git add seen_jobs.json
-          git diff --staged --quiet || git commit -m "Update seen jobs [skip ci]"
+          git diff --staged --quiet || git commit -m "Update seen new grad jobs [skip ci]"
           git push
-

@@ -71,9 +71,11 @@ def role_matches(title_text: str) -> bool:
     return False
 
 
+INTERNSHIP_PATTERN = re.compile(r"\b(intern|internship|co-?op|coop)\b", re.IGNORECASE)
+
+
 def is_internship(title_text: str) -> bool:
-    title = title_text.lower()
-    return any(k in title for k in INTERNSHIP_KEYWORDS)
+    return bool(INTERNSHIP_PATTERN.search(title_text))
 
 
 def _clean_location(location_text: str) -> str:
@@ -370,10 +372,11 @@ def normalize_url(url: str) -> str:
         return url.strip().lower()
 
 
-def generate_dedup_keys(company: str, title: str, country: str = "", url: str = "") -> list[str]:
+def generate_dedup_keys(company: str, title: str, country: str = "", url: str = "", job_type: str = "") -> list[str]:
     """
     Generates a prioritized list of deduplication keys for a job posting.
     Any match across these keys indicates the job is identical.
+    If job_type is 'newgrad', prefixes role keys with role:newgrad: to avoid colliding with internships.
     """
     keys = []
     norm_comp = normalize_company(company)
@@ -386,11 +389,12 @@ def generate_dedup_keys(company: str, title: str, country: str = "", url: str = 
         keys.append(f"url:{norm_u}")
 
     # 2. Company + Title + Country key
+    prefix = "role:newgrad:" if (job_type and job_type.lower() in ("newgrad", "new-grad")) else "role:"
     if norm_comp and norm_tit:
         if norm_c and norm_c != "other":
-            keys.append(f"role:{norm_comp}:{norm_tit}:{norm_c}")
+            keys.append(f"{prefix}{norm_comp}:{norm_tit}:{norm_c}")
         # 3. Company + Title key (cross-country / general)
-        keys.append(f"role:{norm_comp}:{norm_tit}")
+        keys.append(f"{prefix}{norm_comp}:{norm_tit}")
 
     return keys
 

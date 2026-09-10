@@ -100,12 +100,14 @@ export const JobCard: React.FC<JobCardProps> = ({
     job.source === "Microsoft" ||
     HIGH_TECH_COMPANIES.has(job.company.toLowerCase().trim());
 
+  const isNewGrad = Boolean(job.source && /new-?grad/i.test(job.source));
+
   return (
     <div
       className="glass-panel job-card-halo rounded-2xl p-5 flex flex-col justify-between transition-all duration-300 relative group"
     >
       <div>
-        {/* Card Header: 40px Avatar + Company + Flag + Bookmark */}
+        {/* Card Header: 40px Avatar + Company + Flag + Badges + Bookmark */}
         <div className="flex items-start justify-between gap-3 mb-3.5">
           <div className="flex items-center gap-3">
             {/* Avatar */}
@@ -121,6 +123,15 @@ export const JobCard: React.FC<JobCardProps> = ({
                 <span className="text-base shrink-0" title={`Region: ${job.country}`}>
                   {getCountryFlag(job.country)}
                 </span>
+                {isNewGrad ? (
+                  <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shrink-0 shadow-[0_0_10px_rgba(79,70,229,0.2)]">
+                    🚀 New Grad
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 shrink-0">
+                    🎓 Intern
+                  </span>
+                )}
                 {isHighTech && (
                   <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0 shadow-[0_0_10px_rgba(245,158,11,0.2)]">
                     High Tech

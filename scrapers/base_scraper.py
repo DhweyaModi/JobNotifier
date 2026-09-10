@@ -71,9 +71,11 @@ def role_matches(title_text: str) -> bool:
     return False
 
 
+INTERNSHIP_PATTERN = re.compile(r"\b(intern|internship|co-?op|coop)\b", re.IGNORECASE)
+
+
 def is_internship(title_text: str) -> bool:
-    title = title_text.lower()
-    return any(k in title for k in INTERNSHIP_KEYWORDS)
+    return bool(INTERNSHIP_PATTERN.search(title_text))
 
 
 def _clean_location(location_text: str) -> str:

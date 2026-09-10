@@ -2,6 +2,7 @@ import sys
 import requests
 from scrapers.base_scraper import (
     role_matches,
+    is_internship,
     extract_link,
     _iter_table_rows,
     _is_junk_row,
@@ -47,7 +48,7 @@ SPEEDYAPPLY_AI_NEWGRAD_SOURCES = [
     ),
 ]
 
-def _fetch_speedyapply_source(label: str, url: str):
+def _fetch_speedyapply_source(label: str, url: str, is_newgrad: bool = False):
     """Parse a speedyapply README.md or markdown table.
     Handles both 6-column tables (Company | Position | Location | Salary | Posting | Age)
     and 5-column tables (Company | Position | Location | Posting | Age).
@@ -77,6 +78,10 @@ def _fetch_speedyapply_source(label: str, url: str):
         if not role_matches(title):
             continue
 
+        # Strictly discard any stray internships from New Grad boards
+        if is_newgrad and is_internship(title):
+            continue
+
         uid = f"{label}:{company}:{title}:{url_}"
         results.append((uid, title, company, location, url_, date_posted))
 
@@ -84,24 +89,24 @@ def _fetch_speedyapply_source(label: str, url: str):
 
 def fetch_speedyapply_ai_jobs():
     label, url = SPEEDYAPPLY_SOURCES[0]
-    return _fetch_speedyapply_source(label, url)
+    return _fetch_speedyapply_source(label, url, is_newgrad=False)
 
 def fetch_speedyapply_swe_jobs():
     label, url = SPEEDYAPPLY_SOURCES[1]
-    return _fetch_speedyapply_source(label, url)
+    return _fetch_speedyapply_source(label, url, is_newgrad=False)
 
 def fetch_speedyapply_swe_newgrad_jobs():
     """Fetches 2027 Software Engineering New Grad listings (USA & International) from speedyapply."""
     all_jobs = []
     for label, url in SPEEDYAPPLY_SWE_NEWGRAD_SOURCES:
-        all_jobs.extend(_fetch_speedyapply_source(label, url))
+        all_jobs.extend(_fetch_speedyapply_source(label, url, is_newgrad=True))
     return all_jobs
 
 def fetch_speedyapply_ai_newgrad_jobs():
     """Fetches 2027 AI/ML New Grad listings (USA & International) from speedyapply."""
     all_jobs = []
     for label, url in SPEEDYAPPLY_AI_NEWGRAD_SOURCES:
-        all_jobs.extend(_fetch_speedyapply_source(label, url))
+        all_jobs.extend(_fetch_speedyapply_source(label, url, is_newgrad=True))
     return all_jobs
 
 

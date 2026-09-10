@@ -486,6 +486,34 @@ def test_google_scraper_filtering():
         assert "Open Engineering Career Opportunities, CapitalG Portfolio" not in job_titles
 
 
+def test_newgrad_scrapers_discard_internships():
+    from scrapers.simplify import _fetch_from_simplify_json
+    from scrapers.speedyapply import _fetch_speedyapply_source
+
+    # Mock Simplify JSON
+    mock_simplify_data = [
+        {"id": "ng1", "title": "Software Engineer - New Grad", "company_name": "Google", "active": True, "is_visible": True},
+        {"id": "int1", "title": "Software Engineer Intern", "company_name": "Autodesk", "active": True, "is_visible": True},
+        {"id": "int2", "title": "Data Analyst Co-op", "company_name": "Perry Homes", "active": True, "is_visible": True},
+        {"id": "ng2", "title": "Internal Tools Engineer", "company_name": "PlanetScale", "active": True, "is_visible": True},
+    ]
+
+    with patch("requests.get") as mock_get:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = mock_simplify_data
+        mock_get.return_value = mock_resp
+
+        # When fetching as newgrad, stray internships must be excluded while internal tools is kept
+        ng_jobs = _fetch_from_simplify_json("mock_url", id_prefix="simplify-newgrad", is_newgrad=True)
+        ng_titles = [j[1] for j in ng_jobs]
+        assert "Software Engineer - New Grad" in ng_titles
+        assert "Internal Tools Engineer" in ng_titles
+        assert "Software Engineer Intern" not in ng_titles
+        assert "Data Analyst Co-op" not in ng_titles
+
+
+
 
 
 

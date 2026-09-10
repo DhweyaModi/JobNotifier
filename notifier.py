@@ -1,7 +1,7 @@
 import sys
 import requests
 import db
-from scrapers.base_scraper import classify_country, generate_dedup_keys
+from scrapers.base_scraper import classify_country, generate_dedup_keys, is_internship
 
 BATCH_SIZE = 15
 
@@ -71,6 +71,17 @@ def match_job_filters(job: tuple, filters: dict) -> bool:
         # Only accept internships by default; new grad roles require explicit newgrad filter
         if is_newgrad:
             return False
+
+    # Absolute safety guard: If target channel is new grad, it must NEVER receive any internship titles
+    is_target_newgrad = False
+    if target_job_types:
+        types_check = [str(x).lower() for x in (target_job_types if isinstance(target_job_types, list) else [target_job_types])]
+        is_target_newgrad = any(t in ("newgrad", "new-grad") for t in types_check)
+    elif filters.get("job_type"):
+        is_target_newgrad = str(filters["job_type"]).lower() in ("newgrad", "new-grad")
+
+    if is_target_newgrad and is_internship(title):
+        return False
 
     # 1. High Tech filter (if enabled for channel)
     if filters.get("high_tech_only"):

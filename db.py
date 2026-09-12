@@ -23,19 +23,29 @@ else:
         supabase = None
 
 
-def _load_local_seen_jobs() -> set:
+_CACHED_LOCAL_SEEN = None
+
+
+def _load_local_seen_jobs(force_reload: bool = False) -> set:
+    global _CACHED_LOCAL_SEEN
+    if _CACHED_LOCAL_SEEN is not None and not force_reload:
+        return _CACHED_LOCAL_SEEN
     if os.path.exists(SEEN_JOBS_FILE):
         try:
             with open(SEEN_JOBS_FILE, "r") as f:
                 data = json.load(f)
                 if isinstance(data, list):
-                    return set(data)
+                    _CACHED_LOCAL_SEEN = set(data)
+                    return _CACHED_LOCAL_SEEN
         except Exception as e:
             print(f"Warning loading {SEEN_JOBS_FILE}: {e}", flush=True)
-    return set()
+    _CACHED_LOCAL_SEEN = set()
+    return _CACHED_LOCAL_SEEN
 
 
 def _save_local_seen_jobs(seen_jobs: set):
+    global _CACHED_LOCAL_SEEN
+    _CACHED_LOCAL_SEEN = seen_jobs
     try:
         with open(SEEN_JOBS_FILE, "w") as f:
             json.dump(sorted(list(seen_jobs)), f, indent=2)

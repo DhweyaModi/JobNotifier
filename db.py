@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import uuid
 from datetime import datetime, timezone
 from supabase import create_client, Client
 from postgrest.exceptions import APIError
@@ -62,7 +63,8 @@ def verify_database_health() -> tuple[bool, str]:
     if not supabase:
         return True, "Supabase client not configured (operating in local fallback mode)."
 
-    probe_uid = f"__health_probe_{int(datetime.now(timezone.utc).timestamp())}__"
+    probe_uid = f"__health_probe_{uuid.uuid4().hex}__"
+    inserted = False
     try:
         # Test write permission
         res = supabase.table("jobs").insert({
@@ -79,8 +81,7 @@ def verify_database_health() -> tuple[bool, str]:
         if not res.data:
             return False, "Probe insert returned empty data without exception."
 
-        # Clean up probe
-        supabase.table("jobs").delete().eq("external_uid", probe_uid).execute()
+        inserted = True
         return True, "Database write access verified successfully."
     except APIError as e:
         if e.code == "42501":
@@ -88,6 +89,12 @@ def verify_database_health() -> tuple[bool, str]:
         return False, f"Supabase APIError during health check [code {e.code}]: {e.message}"
     except Exception as exc:
         return False, f"Unexpected error during health check: {exc}"
+    finally:
+        if inserted:
+            try:
+                supabase.table("jobs").delete().eq("external_uid", probe_uid).execute()
+            except Exception:
+                pass
 
 
 def upsert_job(uid: str, source: str, title: str, company: str, location: str, country: str, url: str, posted_timestamp: int = 0, posted_date_str: str = "", job_type: str = "") -> bool:

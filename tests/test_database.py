@@ -26,6 +26,28 @@ def test_database_health_check_detects_rls_error():
         assert "42501" in msg
         assert "Row-Level Security" in msg
 
+def test_database_health_check_generates_unique_uids():
+    """Verify that verify_database_health uses unique UUIDs on each call to prevent collision."""
+    uids_inserted = []
+    mock_supabase = MagicMock()
+
+    def capture_insert(payload):
+        uids_inserted.append(payload.get("external_uid"))
+        m = MagicMock()
+        m.data = [payload]
+        return MagicMock(execute=MagicMock(return_value=m))
+
+    mock_supabase.table.return_value.insert.side_effect = capture_insert
+    mock_supabase.table.return_value.delete.return_value.eq.return_value.execute.return_value = MagicMock()
+
+    with patch.object(db, "supabase", mock_supabase):
+        db.verify_database_health()
+        db.verify_database_health()
+
+    assert len(uids_inserted) == 2
+    assert uids_inserted[0] != uids_inserted[1], "Consecutive health checks must generate unique probe UIDs"
+    assert uids_inserted[0].startswith("__health_probe_")
+
 def test_upsert_job_duplicate_key_returns_false():
     """Verify that duplicate key constraint (23505) cleanly returns False without logging errors."""
     mock_supabase = MagicMock()

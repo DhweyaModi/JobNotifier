@@ -3,6 +3,7 @@ import argparse
 from dotenv import load_dotenv
 import db
 from scrapers import SCRAPERS, NEWGRAD_SCRAPERS, INTERNSHIP_SCRAPERS
+from scrapers.base_scraper import classify_country, parse_job_date, generate_dedup_keys
 from notifier import notify_users
 
 # Load env variables for local testing
@@ -55,7 +56,6 @@ def run_monitor(scrapers_list=None, mode_label="All", notify=True):
         for item in jobs:
             uid, title, company, location, url = item[:5]
             raw_date = item[5] if len(item) > 5 else None
-            from scrapers.base_scraper import classify_country, parse_job_date, generate_dedup_keys
             country = classify_country(location)
             ts, date_str = parse_job_date(raw_date)
 

@@ -14,11 +14,6 @@ CANADIAN_README_URLS = [
         "https://raw.githubusercontent.com/negarprh/"
         "Canadian-Tech-Internships-2026/main/README.md",
     ),
-    (
-        "2027",
-        "https://raw.githubusercontent.com/negarprh/"
-        "Canadian-Tech-Internships-2026/main/README-2027.md",
-    ),
 ]
 
 def _parse_canadian_readme(text: str, year_label: str):

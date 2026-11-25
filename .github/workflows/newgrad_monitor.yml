@@ -1,13 +1,15 @@
 name: New Grad Job Monitor
 
 on:
-  schedule:
-    # Every 15 minutes
-    - cron: "*/15 * * * *"
   workflow_dispatch: {}
 
 permissions:
   contents: write
+
+# Same group as main.yml so manual runs never overlap the scheduled scrape
+concurrency:
+  group: job-monitor
+  cancel-in-progress: false
 
 jobs:
   check-newgrad-jobs:

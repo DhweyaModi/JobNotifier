@@ -83,10 +83,61 @@ CREATE TRIGGER update_applications_modtime
     FOR EACH ROW
     EXECUTE FUNCTION update_modified_column();
 
--- Disable Row Level Security (RLS) on all tables since this database is accessed by a backend scraper using the anon key.
-ALTER TABLE jobs DISABLE ROW LEVEL SECURITY;
-ALTER TABLE job_duplicates DISABLE ROW LEVEL SECURITY;
-ALTER TABLE users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE user_filters DISABLE ROW LEVEL SECURITY;
-ALTER TABLE applications DISABLE ROW LEVEL SECURITY;
+-- ============================================================================
+-- Row Level Security
+-- ============================================================================
+-- The scraper / GitHub Actions MUST use the service_role key (SUPABASE_KEY),
+-- which bypasses RLS. The public Next.js frontend uses the anon key and is
+-- limited by the policies below. Never expose the service_role key client-side.
+-- This section is idempotent and safe to re-run on an existing project.
 
+ALTER TABLE jobs            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_duplicates  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_filters    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE applications    ENABLE ROW LEVEL SECURITY;
+
+-- jobs: public read-only (writes only via service_role)
+DROP POLICY IF EXISTS "jobs_public_read" ON jobs;
+CREATE POLICY "jobs_public_read" ON jobs
+    FOR SELECT TO anon, authenticated USING (true);
+
+-- job_duplicates: no policies => only service_role can access.
+
+-- users: contains emails + webhook URLs. Each signed-in user sees/edits only their own row.
+DROP POLICY IF EXISTS "users_select_own" ON users;
+CREATE POLICY "users_select_own" ON users
+    FOR SELECT TO authenticated USING (id = auth.uid());
+
+DROP POLICY IF EXISTS "users_insert_own" ON users;
+CREATE POLICY "users_insert_own" ON users
+    FOR INSERT TO authenticated WITH CHECK (id = auth.uid());
+
+DROP POLICY IF EXISTS "users_update_own" ON users;
+CREATE POLICY "users_update_own" ON users
+    FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+
+-- Guests (no Supabase auth session) may only register a bare 'guest' row; no webhook, no reads.
+DROP POLICY IF EXISTS "users_guest_insert" ON users;
+CREATE POLICY "users_guest_insert" ON users
+    FOR INSERT TO anon
+    WITH CHECK (platform = 'guest' AND webhook_url IS NULL);
+
+-- user_filters / applications: strictly per-user.
+DROP POLICY IF EXISTS "user_filters_own" ON user_filters;
+CREATE POLICY "user_filters_own" ON user_filters
+    FOR ALL TO authenticated
+    USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "applications_own" ON applications;
+CREATE POLICY "applications_own" ON applications
+    FOR ALL TO authenticated
+    USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+-- Public community counter (the frontend can no longer COUNT the users table directly).
+CREATE OR REPLACE FUNCTION get_user_count()
+RETURNS BIGINT
+LANGUAGE sql SECURITY DEFINER SET search_path = public
+AS $$ SELECT count(*) FROM users $$;
+REVOKE ALL ON FUNCTION get_user_count() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION get_user_count() TO anon, authenticated;

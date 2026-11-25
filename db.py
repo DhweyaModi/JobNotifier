@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import uuid
+import base64
 from datetime import datetime, timezone
 from supabase import create_client, Client
 from postgrest.exceptions import APIError
@@ -22,6 +23,16 @@ else:
     except Exception as e:
         print(f"Warning initializing Supabase client: {e}", flush=True)
         supabase = None
+
+
+def _jwt_role(key) -> str:
+    """Best-effort decode of the Supabase JWT 'role' claim (anon / service_role). No verification."""
+    try:
+        payload = key.split(".")[1]
+        payload += "=" * (-len(payload) % 4)
+        return json.loads(base64.urlsafe_b64decode(payload)).get("role", "unknown")
+    except Exception:
+        return "unknown"
 
 
 _CACHED_LOCAL_SEEN = None
@@ -82,10 +93,18 @@ def verify_database_health() -> tuple[bool, str]:
             return False, "Probe insert returned empty data without exception."
 
         inserted = True
-        return True, "Database write access verified successfully."
+        msg = "Database write access verified successfully."
+        if _jwt_role(SUPABASE_KEY) == "anon":
+            msg += (" WARNING: SUPABASE_KEY is the public anon key; the scraper must use the "
+                    "service_role key (RLS is enabled in schema.sql and will block anon writes).")
+        return True, msg
     except APIError as e:
         if e.code == "42501":
-            return False, "Row-Level Security (RLS) is blocking inserts on table 'jobs' (code 42501)."
+            hint = ""
+            if _jwt_role(SUPABASE_KEY) != "service_role":
+                hint = (" SUPABASE_KEY is not a service_role key - set it to the project's "
+                        "service_role key (service_role bypasses RLS).")
+            return False, f"Row-Level Security (RLS) is blocking inserts on table 'jobs' (code 42501).{hint}"
         return False, f"Supabase APIError during health check [code {e.code}]: {e.message}"
     except Exception as exc:
         return False, f"Unexpected error during health check: {exc}"

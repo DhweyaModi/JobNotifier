@@ -3,7 +3,7 @@ from scrapers.base_scraper import role_matches, is_internship
 
 SIMPLIFY_INTERNSHIPS_URL = (
     "https://raw.githubusercontent.com/SimplifyJobs/"
-    "Summer2026-Internships/dev/.github/scripts/listings.json"
+    "Summer2027-Internships/dev/.github/scripts/listings.json"
 )
 
 SIMPLIFY_NEWGRAD_URL = (

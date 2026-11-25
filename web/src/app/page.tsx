@@ -71,9 +71,8 @@ export default function Home() {
     async function fetchCommunityCount() {
       if (!supabase) return;
       try {
-        const { count, error } = await supabase
-          .from("users")
-          .select("*", { count: "exact", head: true });
+        // RLS blocks direct reads of "users"; use the SECURITY DEFINER counter instead.
+        const { data: count, error } = await supabase.rpc("get_user_count");
         if (!error && typeof count === "number" && count > 0) {
           setUserCount(count);
         }
@@ -374,7 +373,7 @@ export default function Home() {
   }, [jobs]);
 
   return (
-    <div className="min-h-screen text-[#EDEDEF] flex flex-col font-sans selection:bg-[#5E6AD2]/35 selection:text-white">
+    <div className="min-h-screen text-[#F8FAFC] flex flex-col font-sans selection:bg-[#5E6AD2]/35 selection:text-white">
       {/* Navbar Header */}
       <Header
         activeTab={activeTab}
@@ -390,7 +389,7 @@ export default function Home() {
       />
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 pt-4 pb-12">
+      <main className="flex-1 max-w-[88rem] w-full mx-auto px-4 lg:px-10 pt-4 pb-12">
         {activeTab === "home" && (
           <LandingHero
             jobs={jobs}
@@ -438,11 +437,11 @@ export default function Home() {
 
             {/* Loading Skeleton Cards (Glass Shimmer) */}
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
                 {Array.from({ length: 9 }).map((_, idx) => (
                   <div
                     key={idx}
-                    className="glass-panel rounded-2xl p-5 space-y-4"
+                    className="glass-panel rounded-2xl p-6 space-y-5 min-h-[200px]"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -508,7 +507,7 @@ export default function Home() {
             ) : (
               <>
                 {/* Job Cards Grid: 3 columns desktop, 2 tablet, 1 mobile, gap 16px (gap-4) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
                   {filteredJobs.slice(0, visibleCount).map((job) => (
                     <JobCard
                       key={job.id}
@@ -562,7 +561,7 @@ export default function Home() {
         <button
           onClick={scrollToTop}
           title="Scroll to top"
-          className="fixed bottom-6 right-6 z-50 p-3.5 rounded-full bg-[#0B1120]/90 hover:bg-[#0B1120] text-slate-300 hover:text-amber-400 border border-white/15 hover:border-amber-500/50 shadow-2xl backdrop-blur-xl transition-all cursor-pointer"
+          className="fixed bottom-6 right-6 z-50 p-3.5 rounded-full bg-[#1e293b]/90 hover:bg-[#1e293b] text-slate-300 hover:text-amber-400 border border-white/15 hover:border-amber-500/50 shadow-2xl backdrop-blur-xl transition-all cursor-pointer"
         >
           <ArrowUp className="w-5 h-5" />
         </button>

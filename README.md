@@ -29,14 +29,15 @@ pip install -r requirements.txt
 
 ### 2. Database Setup
 1. Create a free project on [Supabase](https://supabase.com/).
-2. Run the DDL commands from `schema.sql` in the Supabase **SQL Editor** to initialize the database tables and disable Row Level Security (RLS) for scraper access.
+2. Run the DDL commands from `schema.sql` in the Supabase **SQL Editor** to initialize the tables and enable Row Level Security (RLS) with policies. The scraper bypasses RLS via the `service_role` key.
 
 ### 3. Environment Configuration
 Create a `.env` file in the root of this project:
 
 ```env
 SUPABASE_URL="https://your-project.supabase.co"
-SUPABASE_KEY="your-anon-or-service-role-key"
+# Must be the service_role key (server-side only, never in the frontend or NEXT_PUBLIC_* vars)
+SUPABASE_KEY="your-service-role-key"
 
 # Slack Webhook URLs for Admin Seeding
 SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."

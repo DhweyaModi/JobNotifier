@@ -10,6 +10,11 @@ from scrapers.base_scraper import (
 
 CANADIAN_README_URLS = [
     (
+        "2027",
+        "https://raw.githubusercontent.com/negarprh/"
+        "Canadian-Tech-Internships-2027/main/README.md",
+    ),
+    (
         "2026",
         "https://raw.githubusercontent.com/negarprh/"
         "Canadian-Tech-Internships-2026/main/README.md",

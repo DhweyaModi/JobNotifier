@@ -7,6 +7,10 @@ from scrapers.amazon import fetch_amazon_jobs
 from scrapers.google import fetch_google_jobs
 from scrapers.summer2027 import fetch_summer2027_jobs
 from scrapers.vansh import fetch_vansh_jobs
+from scrapers.community_lists import (
+    fetch_community_internship_jobs,
+    fetch_community_newgrad_jobs,
+)
 from scrapers.speedyapply import (
     fetch_speedyapply_ai_jobs,
     fetch_speedyapply_swe_jobs,
@@ -26,12 +30,15 @@ SCRAPERS = [
     (fetch_speedyapply_swe_jobs, "SpeedyApply-SWE"),
     (fetch_speedyapply_swe_newgrad_jobs, "SpeedyApply-SWE-NewGrad"),
     (fetch_speedyapply_ai_newgrad_jobs, "SpeedyApply-AI-NewGrad"),
+    (fetch_community_internship_jobs, "Community-Internships-2027"),
+    (fetch_community_newgrad_jobs, "Community-NewGrad-2027"),
 ]
 
 NEWGRAD_SCRAPERS = [
     (fetch_simplify_newgrad_jobs, "SimplifyJobs-NewGrad"),
     (fetch_speedyapply_swe_newgrad_jobs, "SpeedyApply-SWE-NewGrad"),
     (fetch_speedyapply_ai_newgrad_jobs, "SpeedyApply-AI-NewGrad"),
+    (fetch_community_newgrad_jobs, "Community-NewGrad-2027"),
 ]
 
 INTERNSHIP_SCRAPERS = [
@@ -43,4 +50,5 @@ INTERNSHIP_SCRAPERS = [
     (fetch_vansh_jobs, "Vansh-Summer2027"),
     (fetch_speedyapply_ai_jobs, "SpeedyApply-AI"),
     (fetch_speedyapply_swe_jobs, "SpeedyApply-SWE"),
+    (fetch_community_internship_jobs, "Community-Internships-2027"),
 ]

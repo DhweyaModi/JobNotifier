@@ -249,11 +249,13 @@ def parse_job_date(date_val, current_year=2026):
     now = datetime.now(timezone.utc)
 
     # Relative age (e.g. 0d, 1d, 2d, 12h, 30m)
-    m_rel = re.match(r"^(\d+)\s*([dhm])$", s, re.IGNORECASE)
+    m_rel = re.match(r"^(\d+)\s*([wdhm])$", s, re.IGNORECASE)
     if m_rel:
         num = int(m_rel.group(1))
         unit = m_rel.group(2).lower()
-        if unit == "d":
+        if unit == "w":
+            dt = now - timedelta(weeks=num)
+        elif unit == "d":
             dt = now - timedelta(days=num)
         elif unit == "h":
             dt = now - timedelta(hours=num)

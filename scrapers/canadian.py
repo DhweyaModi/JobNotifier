@@ -46,6 +46,10 @@ def _parse_canadian_readme(text: str, year_label: str):
 
         date_posted = _strip_html(cells[4]) if len(cells) > 4 else ""
 
+        # Closed postings (🔒 / no apply link) must not be treated as new openings
+        if not url:
+            continue
+
         if not role_matches(title):
             continue
 

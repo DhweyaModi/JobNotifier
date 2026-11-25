@@ -83,12 +83,27 @@ export async function GET(request: NextRequest) {
 
     // 1. Try Supabase first if configured
     if (supabase && !forceRefresh) {
-      const { data, error } = await supabase
-        .from("jobs")
-        .select("*")
-        .order("posted_at", { ascending: false, nullsFirst: false })
-        .order("first_seen_at", { ascending: false })
-        .limit(15000);
+      // PostgREST caps every response at max-rows (default 1000), so .limit(15000) silently
+      // returned only the newest 1000 jobs. Page through the table with .range() instead.
+      const PAGE_SIZE = 1000;
+      const MAX_ROWS = 40000;
+      const data: any[] = [];
+      let error: any = null;
+      for (let from = 0; from < MAX_ROWS; from += PAGE_SIZE) {
+        const { data: page, error: pageErr } = await supabase
+          .from("jobs")
+          .select("*")
+          .order("posted_at", { ascending: false, nullsFirst: false })
+          .order("first_seen_at", { ascending: false })
+          .order("id", { ascending: false }) // stable tiebreaker so pages don't overlap/skip
+          .range(from, from + PAGE_SIZE - 1);
+        if (pageErr) {
+          error = pageErr;
+          break;
+        }
+        data.push(...(page || []));
+        if (!page || page.length < PAGE_SIZE) break;
+      }
 
       if (!error && data && data.length > 0) {
         const jobs: Job[] = data.map((item: any) => {

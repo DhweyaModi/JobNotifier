@@ -36,6 +36,10 @@ def fetch_summer2027_jobs():
         url = extract_link(apply_cell)
         date_posted = _strip_html(cells[4]) if len(cells) > 4 else ""
 
+        # Closed postings (🔒 / no apply link) must not be treated as new openings
+        if not url:
+            continue
+
         if not role_matches(title):
             continue
 

@@ -45,6 +45,10 @@ def fetch_vansh_jobs():
 
         date_posted = _strip_html(_date) if _date else ""
 
+        # Closed postings (🔒 / no apply link) must not be treated as new openings
+        if not url:
+            continue
+
         if not role_matches(title):
             continue
 
